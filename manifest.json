@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Sirius 学習支援",
+  "version": "0.1.0",
+  "description": "東京農工大学のSirius LMSを支援する非公式拡張。開発中の基盤版です。",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://lms.sirius.tuat.ac.jp/portal",
+        "https://lms.sirius.tuat.ac.jp/portal?*",
+        "https://lms.sirius.tuat.ac.jp/portal/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "world": "ISOLATED",
+      "all_frames": false
+    }
+  ]
+}
