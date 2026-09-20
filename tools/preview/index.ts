@@ -1,5 +1,8 @@
 // Development-only synthetic UI harness. Never bundled into dist/content.js.
 import { mountPanel } from "../../src/panel.ts";
+import { installMockStorage } from "./storage.ts";
+const parameters = new URL(location.href).searchParams;
+if (parameters.has("storage")) installMockStorage(parameters.get("storage")!, parameters.get("confirm") !== "cancel");
 let scenario = new URL(location.href).searchParams.get("case") ?? "normal";
 let requests = 0, active = 0, peak = 0;
 const counter = document.getElementById("requests")!;

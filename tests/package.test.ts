@@ -31,6 +31,8 @@ test("built package has minimal MV3 permissions and no runtime dependencies", ()
   assert.equal(manifest.background, undefined);
   assert.equal(manifest.web_accessible_resources, undefined);
   assert.equal(pkg.dependencies, undefined);
+  const bundled = readFileSync(new URL("dist/content.js", root), "utf8");
+  assert.doesNotMatch(bundled, /sirius-preview-settings|installMockStorage|読み取り診断を実行/);
   assert.deepEqual(manifest.content_scripts, [{
     matches: [
       "https://lms.sirius.tuat.ac.jp/portal",

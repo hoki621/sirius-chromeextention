@@ -3,7 +3,7 @@ import type { Failure } from "./api.ts";
 import { CACHE_MS, Loader } from "./loader.ts";
 import { courseLink, formatDate, GROUPS, group, visibleItems } from "./model.ts";
 import type { Filters } from "./model.ts";
-import { DEFAULT_PREFS, deleteOwnedData, decodePreferences, PREF_KEY, readPreferences, savePreferences } from "./preferences.ts";
+import { applyPreferenceChange, DEFAULT_PREFS, deleteOwnedData, decodePreferences, PREF_KEY, readPreferences, savePreferences } from "./preferences.ts";
 import type { StorageArea } from "./preferences.ts";
 
 type Changes = Record<string, { newValue?: unknown }>;
@@ -22,6 +22,14 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, text = ""): HTML
 }
 function button(text: string, action: () => void): HTMLButtonElement {
   const node = element("button", text); node.type = "button"; node.addEventListener("click", action); return node;
+}
+export function restoreFocus(container: ParentNode, previous: HTMLElement | null): void {
+  if (!previous) return;
+  const field = previous.dataset.item ? "item" : "scope", key = previous.dataset[field];
+  if (!key) return;
+  for (const target of container.querySelectorAll<HTMLElement>("[data-item],[data-scope]")) {
+    if (target.dataset[field] === key && target.tagName === previous.tagName) { target.focus({ preventScroll: true }); return; }
+  }
 }
 export function accountMarker(): string | null {
   for (const link of document.querySelectorAll<HTMLAnchorElement>("nav#linkNav a[href]")) {
@@ -85,9 +93,9 @@ export function mountPanel(): void {
   kind.addEventListener("change", () => { filters.kind = kind.value; persist(); renderList(); });
   showCompleted.addEventListener("change", () => { filters.showCompleted = showCompleted.checked; persist(); renderList(); });
   const erase = button("拡張の保存データを削除", () => {
-    if (!window.confirm("この拡張の表示設定と、このページの完了チェックを削除します。LMSのデータは変更しません。")) return;
+    if (!window.confirm("この拡張の保存データと、開いている対応版の各タブの完了チェック・絞り込みを削除します。LMSのデータは変更しません。")) return;
     preferenceRevision++;
-    completed.clear(); filters.search = ""; filters.site = ""; Object.assign(filters, DEFAULT_PREFS); search.value = ""; syncControls(); render();
+    applyPreferenceChange(filters, completed, undefined); search.value = ""; syncControls(); render();
     writes = writes.then(async () => {
       try { if (storage) await deleteOwnedData(storage.local); storageNote.textContent = "拡張の保存データを削除しました。"; }
       catch { storageNote.textContent = "保存データを削除できませんでした。Chromeの拡張管理画面から削除してください。"; }
@@ -117,7 +125,8 @@ export function mountPanel(): void {
   function changed(changes: Changes, area: string): void {
     if (destroyed || area !== "local" || !Object.hasOwn(changes, PREF_KEY)) return;
     preferenceRevision++;
-    Object.assign(filters, decodePreferences(changes[PREF_KEY]?.newValue)); syncControls(); renderList();
+    applyPreferenceChange(filters, completed, changes[PREF_KEY]?.newValue);
+    search.value = filters.search; site.value = filters.site; syncControls(); renderList();
   }
   storage?.onChanged.addListener(changed);
   const readRevision = preferenceRevision;
@@ -126,7 +135,7 @@ export function mountPanel(): void {
   }).catch(() => { storageNote.textContent = "表示設定を読み込めません。このページ内だけで使用します。"; });
   function renderList(): void {
     if (!dialog.open) return;
-    const focusedKey = (shadow.activeElement as HTMLInputElement | null)?.dataset?.item;
+    const focused = shadow.activeElement as HTMLElement | null;
     const items = visibleItems(loader.state.items, filters, completed), now = Date.now();
     list.replaceChildren();
     if (!items.length) {
@@ -141,7 +150,7 @@ export function mountPanel(): void {
       section.append(element("h3", `${label} · ${matching.length}件`), ul);
       for (const item of matching) {
         const li = element("li"), title = element("p", item.title); title.className = "title";
-        const link = element("a", `${item.site.title} — 公式の科目トップ`); link.href = item.href;
+        const link = element("a", `${item.site.title} — 公式の科目トップ`); link.href = item.href; link.dataset.item = item.key;
         const date = element("p", item.deadline.state === "known" ? `${formatDate(item.deadline.at)}（日本時間）` : "期限不明 — 公式画面で確認"); date.className = "meta";
         const input = element("input"); input.type = "checkbox"; input.checked = completed.has(item.key); input.dataset.item = item.key;
         input.setAttribute("aria-label", `${item.site.title} / ${item.title}: 自分のリストで完了`);
@@ -155,7 +164,7 @@ export function mountPanel(): void {
       }
       list.append(section);
     }
-    if (focusedKey) for (const input of shadow.querySelectorAll<HTMLInputElement>("input[data-item]")) if (input.dataset.item === focusedKey) input.focus();
+    restoreFocus(list, focused);
   }
   function render(): void {
     const state = loader.state, now = Date.now();
@@ -174,12 +183,15 @@ export function mountPanel(): void {
     for (const entry of state.sites) { const option = element("option", entry.title); option.value = entry.id; options.push(option); }
     site.replaceChildren(...options); site.value = selected;
     if (site.selectedIndex < 0) { site.value = ""; filters.site = ""; }
+    const focusedScope = shadow.activeElement as HTMLElement | null;
     scopeRows.replaceChildren(element("li", `サイト一覧: ${state.pagingComplete ? "空ページまで取得" : "全ページ取得は未確認"}／形式不明で除外: ${state.skippedSites}件。APIが返す範囲のみであり、履修科目の網羅性は未保証です。`));
     for (const scope of state.scopes) {
       const description = scope.state === "ok" ? `取得成功${scope.skipped ? `・形式不明 ${scope.skipped}件除外` : ""}` : scope.state === "pending" ? state.loading ? "待機中" : "未取得" : scope.state === "unsupported" ? "非空の小テストは未対応" : ERRORS[scope.error ?? "network"];
       const row = element("li"); const link = element("a", scope.site.title); link.href = courseLink(scope.site.id);
+      link.dataset.scope = JSON.stringify([scope.site.id, scope.kind]);
       row.append(link, document.createTextNode(` / ${scope.kind === "assignment" ? "課題" : "小テスト"}: ${description}${scope.fetchedAt !== undefined ? ` (${formatDate(scope.fetchedAt)} JST)` : ""}`)); scopeRows.append(row);
     }
+    restoreFocus(scopeRows, focusedScope);
     if (state.error === "auth" || state.error === "html") { completed.clear(); filters.search = ""; filters.site = ""; search.value = ""; }
     renderList();
   }

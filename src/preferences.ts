@@ -1,4 +1,5 @@
 import { record } from "./model.ts";
+import type { Filters } from "./model.ts";
 
 export type Preferences = { kind: "" | "assignment" | "quiz"; showCompleted: boolean };
 export const PREF_KEY = "sirius:preferences:v1";
@@ -16,5 +17,14 @@ export async function savePreferences(storage: StorageArea, value: Preferences):
 }
 export async function deleteOwnedData(storage: StorageArea): Promise<void> {
   const keys = Object.keys(await storage.get(null)).filter(key => key.startsWith("sirius:"));
-  if (keys.length) await storage.remove(keys);
+  // Ensure every live tab receives a removal event, even with no saved preferences.
+  // This contains no personal data and is removed by the following operation.
+  await savePreferences(storage, DEFAULT_PREFS);
+  await storage.remove([...new Set([...keys, PREF_KEY])]);
+}
+export function applyPreferenceChange(filters: Filters, completed: Set<string>, value: unknown): void {
+  Object.assign(filters, decodePreferences(value));
+  if (value === undefined) {
+    completed.clear(); filters.search = ""; filters.site = "";
+  }
 }
