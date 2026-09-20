@@ -31,6 +31,8 @@ GitHub Actionsも同じ4コマンドを実行します。
 
 ## Chromeへの読み込み
 
+コミット固定の試用ZIPを作る場合は [配布準備手順](docs/packaging.md) を参照してください。ZIP作成は公開の承認ではありません。
+
 1. `npm run build` を実行します。
 2. Chromeの `chrome://extensions` を開き、開発者モードを有効にします。
 3. 「パッケージ化されていない拡張機能を読み込む」で、このリポジトリの `dist` ディレクトリを選びます。
