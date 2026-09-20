@@ -7,6 +7,16 @@ const signal = () => new AbortController().signal;
 const fixture = (name: string): unknown => JSON.parse(readFileSync(new URL(`fixtures/${name}.observed.json`, import.meta.url), "utf8"));
 const fails = (code: string) => (error: unknown) => error instanceof ApiError && error.code === code;
 
+test("default browser fetch preserves the global receiver rather than the API instance", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async function(this: unknown) {
+    assert.equal(this, globalThis, "native browser fetch requires its Window receiver");
+    return Response.json({});
+  };
+  try { await new SiriusApi().sites(0, signal()); }
+  finally { globalThis.fetch = original; }
+});
+
 test("fixed GET endpoints, credentials, conservative response errors and safe identifiers", async () => {
   const calls: string[] = [];
   const api = new SiriusApi(async (url, options) => {

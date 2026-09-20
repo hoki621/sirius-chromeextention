@@ -27,7 +27,7 @@ export function retryAfter(value: string | null, now: number): number {
 export class SiriusApi {
   readonly #fetch: typeof fetch;
   readonly #timeout: number;
-  constructor(fetcher: typeof fetch = fetch, timeout = 15_000) {
+  constructor(fetcher: typeof fetch = fetch.bind(globalThis), timeout = 15_000) {
     this.#fetch = fetcher;
     this.#timeout = timeout;
   }
