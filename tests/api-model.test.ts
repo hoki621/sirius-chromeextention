@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { ApiError, ORIGIN, retryAfter, SiriusApi } from "../src/api.ts";
-import { courseLink, decodeDeadline, decodeItems, decodeSites, group, visibleItems } from "../src/model.ts";
+import { courseLink, decodeDeadline, decodeItems, decodeSites, formatDate, group, visibleItems } from "../src/model.ts";
 const signal = () => new AbortController().signal;
 const fixture = (name: string): unknown => JSON.parse(readFileSync(new URL(`fixtures/${name}.observed.json`, import.meta.url), "utf8"));
 const fails = (code: string) => (error: unknown) => error instanceof ApiError && error.code === code;
@@ -36,6 +36,10 @@ test("fixed GET endpoints, credentials, conservative response errors and safe id
   await assert.rejects(new SiriusApi(async () => { throw Error("private-url"); }).sites(0, signal()), fails("network"));
   assert.equal(retryAfter("10", 1000), 11000); assert.equal(retryAfter(null, 1000), 61000);
   assert.equal(retryAfter("Thu, 01 Jan 1970 00:02:00 GMT", 1000), 120000);
+  const distantRetry = retryAfter("999999999999999", 1000);
+  assert.ok(distantRetry > 8.64e15, "preserve server retry delay even outside the Date range");
+  assert.equal(formatDate(distantRetry), "日時不明");
+  assert.equal(formatDate(NaN), "日時不明");
 });
 test("cancellation and timeout cover body consumption, and late fetch cannot return success", async () => {
   const controller = new AbortController();

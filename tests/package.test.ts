@@ -31,6 +31,8 @@ test("built package has minimal MV3 permissions and no runtime dependencies", ()
   assert.equal(manifest.background, undefined);
   assert.equal(manifest.web_accessible_resources, undefined);
   assert.equal(pkg.dependencies, undefined);
+  const bundled = readFileSync(new URL("dist/content.js", root), "utf8");
+  assert.doesNotMatch(bundled, /sirius-preview-settings|installMockStorage|読み取り診断を実行/);
   assert.deepEqual(manifest.content_scripts, [{
     matches: [
       "https://lms.sirius.tuat.ac.jp/portal",
@@ -41,7 +43,7 @@ test("built package has minimal MV3 permissions and no runtime dependencies", ()
   }]);
 });
 
-test("the built entry runs only in scope and performs no network, storage or DOM access", () => {
+test("entry checks DOM only in scope and does not request data on unrecognized/login pages", () => {
   const code = readFileSync(new URL("dist/content.js", root), "utf8");
   for (const [href, topFrame, expected] of [
     ["https://lms.sirius.tuat.ac.jp/portal", true, 1],
@@ -51,12 +53,43 @@ test("the built entry runs only in scope and performs no network, storage or DOM
     ["https://lms.sirius.tuat.ac.jp/portal", false, 0],
   ] as const) {
     const self = {};
-    const messages: string[] = [];
+    let queries = 0;
     runInNewContext(code, {
       URL,
-      window: { location: { href }, self, top: topFrame ? self : {} },
-      console: { debug: (message: string) => messages.push(message) },
+      window: { location: { href }, self, top: topFrame ? self : {}, addEventListener: () => {} },
+      document: { querySelector: () => { queries++; return null; }, querySelectorAll: () => [] },
     });
-    assert.equal(messages.length, expected, `${href}, top=${topFrame}`);
+    assert.equal(queries, expected, `${href}, top=${topFrame}`);
   }
+});
+
+test("unsafe insertion locations, missing identity and duplicate roots leave official DOM untouched", () => {
+  const code = readFileSync(new URL("dist/content.js", root), "utf8");
+  const self = {};
+  for (const scenario of ["form", "anonymous", "duplicate"] as const) {
+    runInNewContext(code, {
+      URL,
+      window: { location: { href: "https://lms.sirius.tuat.ac.jp/portal" }, self, top: self, addEventListener: () => {} },
+      document: {
+        querySelector: () => ({ closest: () => scenario === "form" ? {} : null }),
+        querySelectorAll: () => scenario === "anonymous" ? [] : [{ href: "https://lms.sirius.tuat.ac.jp/portal/site/%7Esample-user" }],
+        getElementById: () => scenario === "duplicate" ? {} : null,
+        createElement: () => { throw Error("Must not mutate unknown/unsafe DOM"); },
+      },
+    });
+  }
+});
+
+test("back/forward restoration rechecks the page without background fetching", () => {
+  const code = readFileSync(new URL("dist/content.js", root), "utf8");
+  const self = {};
+  let pageshow: ((event: { persisted: boolean }) => void) | undefined, queries = 0;
+  runInNewContext(code, {
+    URL,
+    window: { location: { href: "https://lms.sirius.tuat.ac.jp/portal" }, self, top: self,
+      addEventListener: (name: string, callback: typeof pageshow) => { if (name === "pageshow") pageshow = callback; } },
+    document: { querySelector: () => { queries++; return null; }, querySelectorAll: () => [] },
+  });
+  assert.equal(queries, 1); pageshow?.({ persisted: false }); assert.equal(queries, 1);
+  pageshow?.({ persisted: true }); assert.equal(queries, 2);
 });

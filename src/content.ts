@@ -1,6 +1,8 @@
 import { isSiriusPortal } from "./scope.ts";
+import { mountPanel } from "./panel.ts";
 
 if (isSiriusPortal(window.location.href, window.self === window.top)) {
-  // Issue #3 only: no API requests or page mutations until #2 confirms the contract.
-  console.debug("[Sirius 学習支援] 基盤版を読み込みました。データ取得は未実装です。");
+  mountPanel();
+  // A page restored from the back/forward cache needs a fresh, empty panel.
+  window.addEventListener("pageshow", event => { if (event.persisted) mountPanel(); });
 }

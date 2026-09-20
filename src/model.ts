@@ -64,7 +64,7 @@ export function group(deadline: Deadline, now: number): Group {
   return deadline.at < tomorrow ? "today" : deadline.at < tomorrow + 7 * DAY ? "week" : "later";
 }
 const formatter = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-export function formatDate(at: number): string { return formatter.format(at); }
+export function formatDate(at: number): string { return Number.isFinite(new Date(at).getTime()) ? formatter.format(at) : "日時不明"; }
 export type Filters = { search: string; site: string; kind: string; showCompleted: boolean };
 export function visibleItems(items: Item[], filters: Filters, completed: ReadonlySet<string>): Item[] {
   const search = filters.search.trim().toLocaleLowerCase("ja");
