@@ -23,7 +23,7 @@ test("probe selects only exact Sirius course links", () => {
   }
 });
 
-test("probe runs at most five sequential same-origin GETs and redacts identifiers", async () => {
+test("probe omits paging when the site response is invalid and redacts identifiers", async () => {
   const calls: string[] = [];
   const request: typeof fetch = async (input, init) => {
     calls.push(String(input));

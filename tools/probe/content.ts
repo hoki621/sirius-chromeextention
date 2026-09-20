@@ -16,9 +16,9 @@ if (isSiriusPortal(location.href, window.self === window.top) && !document.getEl
   `;
   const panel = document.createElement("section");
   const heading = document.createElement("h2");
-  heading.textContent = "Sirius API診断 v2（開発用）";
+  heading.textContent = "Sirius API診断 v3（開発用）";
   const description = document.createElement("p");
-  description.textContent = "1回だけ、科目一覧と最大2科目の課題・小テストを読み取ります。HTTP状態・型と、課題一覧の日時との照合件数を表示します。実際の値の出力・保存・外部送信・提出は行いません。";
+  description.textContent = "科目一覧・最大2科目の課題と小テスト・一覧の取得範囲を読み取り診断します。型・照合件数と、名前・ID・日時を架空値へ置換した最小サンプルを表示します。保存・外部送信・提出は行いません。";
   const start = document.createElement("button");
   start.type = "button";
   start.textContent = "読み取り診断を実行";
@@ -35,15 +35,15 @@ if (isSiriusPortal(location.href, window.self === window.top) && !document.getEl
   start.addEventListener("click", async () => {
     start.disabled = true;
     close.disabled = true;
-    status.textContent = "読み取り中…（最大5リクエスト、1件あたり15秒）";
+    status.textContent = "読み取り中…（最大9リクエスト、1件あたり15秒）";
     const visible = visibleAssignmentRows(document);
     const ids = [...visible.rows.map(row => row.siteId), ...Array.from(document.querySelectorAll<HTMLAnchorElement>("#linkNav a[href]"))
       .map(a => courseIdFromLink(a.href)).filter((id): id is string => id !== null)];
     try {
-      output.value = JSON.stringify({ probeVersion: 2, evidence: "shape and comparison counts; not an anonymized response fixture",
+      output.value = JSON.stringify({ probeVersion: 3, evidence: "observed shape, comparison counts and redacted selected-field response samples; not complete schemas",
         assignmentTable: { found: visible.tableFound, identifiedRows: visible.rows.length, unidentifiedRows: visible.unidentifiedRows },
         requests: await runProbe(ids, fetch, visible.rows) }, null, 2);
-      status.textContent = "診断が終わりました。結果を選択してコピーできます。実データの値は含みません。";
+      status.textContent = "診断が終わりました。結果を選択してコピーできます。サンプルの名前・ID・日時は架空値です。";
     } catch {
       status.textContent = "診断を完了できませんでした。個人情報を含むエラー詳細は表示しません。";
     } finally {
