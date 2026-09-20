@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Sirius API診断（開発用）",
+  "version": "0.1.0",
+  "description": "Issue #2の読み取り専用診断。結果はこのページ内だけに表示します。",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://lms.sirius.tuat.ac.jp/portal",
+        "https://lms.sirius.tuat.ac.jp/portal?*",
+        "https://lms.sirius.tuat.ac.jp/portal/*"
+      ],
+      "js": ["probe.js"],
+      "run_at": "document_idle",
+      "world": "ISOLATED",
+      "all_frames": false
+    }
+  ]
+}
