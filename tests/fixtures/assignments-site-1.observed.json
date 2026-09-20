@@ -1,0 +1,47 @@
+{
+  "assignment_collection": [
+    {
+      "id": "sample-3",
+      "context": "sample-1",
+      "title": "Sample title",
+      "openTime": {
+        "epochSecond": 1893542400,
+        "nano": 0
+      },
+      "dueTime": {
+        "epochSecond": 1893628800,
+        "nano": 0
+      },
+      "closeTime": {
+        "epochSecond": 1893628800,
+        "nano": 0
+      },
+      "dropDeadTime": {
+        "epochSecond": 1893628800,
+        "nano": 0
+      }
+    },
+    {
+      "id": "sample-4",
+      "context": "sample-1",
+      "title": "Sample title",
+      "openTime": {
+        "epochSecond": 1893456000,
+        "nano": 0
+      },
+      "dueTime": {
+        "epochSecond": 1893715200,
+        "nano": 0
+      },
+      "closeTime": {
+        "epochSecond": 1893715200,
+        "nano": 0
+      },
+      "dropDeadTime": {
+        "epochSecond": 1893715200,
+        "nano": 0
+      }
+    }
+  ],
+  "entityPrefix": "assignment"
+}
