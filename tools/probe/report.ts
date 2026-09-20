@@ -1,3 +1,5 @@
+import { compareAssignmentDeadlines, type AssignmentRow } from "./deadlines.ts";
+
 // These names only control diagnostic output. They are NOT an assumed API schema.
 // Unknown names and all scalar values stay out of the report, including keys in props/maps.
 const allowedFields = new Set([
@@ -45,17 +47,17 @@ export function courseIdFromLink(href: string): string | null {
   }
 }
 
-type ProbeResult = { endpoint: string; status?: number; format?: string; shape?: unknown; error?: string };
+type ProbeResult = { endpoint: string; status?: number; format?: string; shape?: unknown; error?: string; deadlineComparison?: ReturnType<typeof compareAssignmentDeadlines> };
 
-export async function runProbe(courseIds: string[], request: typeof fetch = fetch): Promise<ProbeResult[]> {
+export async function runProbe(courseIds: string[], request: typeof fetch = fetch, rows: AssignmentRow[] = []): Promise<ProbeResult[]> {
   const ids = [...new Set(courseIds)].filter(id => /^[a-zA-Z0-9_-]{1,128}$/.test(id)).slice(0, 2);
-  const targets: [string, string][] = [["sites", "/direct/site.json?_limit=200"]];
+  const targets: [string, string, string?][] = [["sites", "/direct/site.json?_limit=200"]];
   for (const [index, id] of ids.entries()) {
-    targets.push([`assignments-${index + 1}`, `/direct/assignment/site/${encodeURIComponent(id)}.json`]);
+    targets.push([`assignments-${index + 1}`, `/direct/assignment/site/${encodeURIComponent(id)}.json`, id]);
     targets.push([`quizzes-${index + 1}`, `/direct/sam_pub/context/${encodeURIComponent(id)}.json`]);
   }
   const results: ProbeResult[] = [];
-  for (const [endpoint, path] of targets) {
+  for (const [endpoint, path, assignmentSiteId] of targets) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15_000);
     try {
@@ -68,7 +70,13 @@ export async function runProbe(courseIds: string[], request: typeof fetch = fetc
       results.push(result);
       if (response.status === 401 || response.status === 429) break;
       if (response.ok && json) {
-        try { result.shape = describeShape(await response.json()); }
+        try {
+          const payload: unknown = await response.json();
+          result.shape = describeShape(payload);
+          if (assignmentSiteId && rows.some(row => row.siteId === assignmentSiteId)) {
+            result.deadlineComparison = compareAssignmentDeadlines(payload, rows, assignmentSiteId);
+          }
+        }
         catch { result.error = controller.signal.aborted ? "timeout" : "invalid-json"; }
       }
     } catch {

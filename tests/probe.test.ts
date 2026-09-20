@@ -54,3 +54,14 @@ test("probe stops at 401/429 and does not disclose response or exception text", 
   const html = await runProbe([], async () => new Response("<h1>private-login-page</h1>", { headers: { "content-type": "text/html" } }));
   assert.deepEqual(html, [{ endpoint: "sites", status: 200, format: "html" }]);
 });
+
+test("probe attaches comparison counts only to the matching assignment response", async () => {
+  const rows = [{ siteId: "private-site", itemId: "private-item", open: "2030/01/01 00:00", due: "2030/01/02 00:00" }];
+  const results = await runProbe(["private-site"], async () => new Response(JSON.stringify({ assignment_collection: [{
+    id: "private-item", context: "private-site", dueTime: { epochSecond: Date.parse("2030-01-01T15:00:00Z") / 1000, nano: 0 },
+  }] }), { headers: { "content-type": "application/json" } }), rows);
+  assert.equal(results[0]?.deadlineComparison, undefined);
+  assert.equal(results[1]?.deadlineComparison?.comparisons.dueTime?.matched, 1);
+  assert.equal(results[2]?.deadlineComparison, undefined);
+  assert.doesNotMatch(JSON.stringify(results), /private-|2030/);
+});

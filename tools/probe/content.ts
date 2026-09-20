@@ -1,5 +1,6 @@
 import { isSiriusPortal } from "../../src/scope.ts";
 import { courseIdFromLink, runProbe } from "./report.ts";
+import { visibleAssignmentRows } from "./deadlines.ts";
 
 if (isSiriusPortal(location.href, window.self === window.top) && !document.getElementById("sirius-api-probe")) {
   const host = document.createElement("aside");
@@ -15,9 +16,9 @@ if (isSiriusPortal(location.href, window.self === window.top) && !document.getEl
   `;
   const panel = document.createElement("section");
   const heading = document.createElement("h2");
-  heading.textContent = "Sirius API診断（開発用）";
+  heading.textContent = "Sirius API診断 v2（開発用）";
   const description = document.createElement("p");
-  description.textContent = "1回だけ、科目一覧と表示中の最大2科目の課題・小テストを読み取ります。値は表示せず、HTTP状態と項目の型だけを表示します。保存・外部送信・提出は行いません。";
+  description.textContent = "1回だけ、科目一覧と最大2科目の課題・小テストを読み取ります。HTTP状態・型と、課題一覧の日時との照合件数を表示します。実際の値の出力・保存・外部送信・提出は行いません。";
   const start = document.createElement("button");
   start.type = "button";
   start.textContent = "読み取り診断を実行";
@@ -35,10 +36,13 @@ if (isSiriusPortal(location.href, window.self === window.top) && !document.getEl
     start.disabled = true;
     close.disabled = true;
     status.textContent = "読み取り中…（最大5リクエスト、1件あたり15秒）";
-    const ids = Array.from(document.querySelectorAll<HTMLAnchorElement>("#linkNav a[href]"))
-      .map(a => courseIdFromLink(a.href)).filter((id): id is string => id !== null);
+    const visible = visibleAssignmentRows(document);
+    const ids = [...visible.rows.map(row => row.siteId), ...Array.from(document.querySelectorAll<HTMLAnchorElement>("#linkNav a[href]"))
+      .map(a => courseIdFromLink(a.href)).filter((id): id is string => id !== null)];
     try {
-      output.value = JSON.stringify({ probeVersion: 1, evidence: "shape-only; not an anonymized response fixture", requests: await runProbe(ids) }, null, 2);
+      output.value = JSON.stringify({ probeVersion: 2, evidence: "shape and comparison counts; not an anonymized response fixture",
+        assignmentTable: { found: visible.tableFound, identifiedRows: visible.rows.length, unidentifiedRows: visible.unidentifiedRows },
+        requests: await runProbe(ids, fetch, visible.rows) }, null, 2);
       status.textContent = "診断が終わりました。結果を選択してコピーできます。実データの値は含みません。";
     } catch {
       status.textContent = "診断を完了できませんでした。個人情報を含むエラー詳細は表示しません。";
