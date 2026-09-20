@@ -1,0 +1,17 @@
+{
+  "site_collection": [
+    {
+      "id": "sample-1",
+      "title": "Sample title",
+      "type": "project",
+      "published": true
+    },
+    {
+      "id": "sample-2",
+      "title": "Sample title",
+      "type": "project",
+      "published": true
+    }
+  ],
+  "entityPrefix": "site"
+}
