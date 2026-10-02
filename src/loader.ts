@@ -81,48 +81,41 @@ export class Loader {
       if (!current()) return;
       this.state.scopes = this.state.sites.flatMap(site => (["assignment", "quiz"] as const).map(kind => ({ site, kind, state: "pending" as const, skipped: 0 })));
       this.#notify();
-      let next = 0;
-      const worker = async () => {
-        while (current()) {
-          const scope = this.state.scopes[next++];
-          if (!scope) return;
-          try {
-            const response = scope.kind === "assignment" ? await this.#api.assignments(scope.site.id, signal) : await this.#api.quizzes(scope.site.id, signal);
-            if (!current()) return;
-            const fetchedAt = this.#now();
-            const decoded = decodeItems(response, scope.site, scope.kind, fetchedAt);
-            scope.state = decoded.unsupported ? "unsupported" : "ok";
-            scope.skipped = decoded.skipped;
-            scope.fetchedAt = fetchedAt;
-            this.state.items.push(...decoded.items);
-            if (current()) this.#notify();
-            // Reuse the four existing workers: no second request pool or persistent link cache.
-            for (const item of decoded.items) {
-              if (!current()) return;
-              try {
-                const response = await this.#api.assignmentDeepLink(item.site.id, item.id, signal);
+      // Discover every course first. Then use all four workers even for one course's links.
+      for (const jobs of [this.state.scopes, this.state.items]) {
+        let next = 0;
+        const worker = async () => {
+          while (current()) {
+            const job = jobs[next++];
+            if (!job) return;
+            try {
+              if ("key" in job) {
+                const response = await this.#api.assignmentDeepLink(job.site.id, job.id, signal);
                 if (!current()) return;
-                const href = decodeAssignmentDeepLink(response, item.site.id, item.id);
-                item.detailState = href ? "direct" : "fallback";
-                if (href) item.href = href;
-              } catch (error) {
+                const href = decodeAssignmentDeepLink(response, job.site.id, job.id);
+                job.detailState = href ? "direct" : "fallback";
+                if (href) job.href = href;
+              } else {
+                const response = job.kind === "assignment" ? await this.#api.assignments(job.site.id, signal) : await this.#api.quizzes(job.site.id, signal);
                 if (!current()) return;
-                const failure = error instanceof ApiError ? error : new ApiError("network");
-                item.detailState = "fallback"; item.linkError = failure.code;
-                if (["auth", "html", "rate-limit"].includes(failure.code)) { fail(failure); return; }
+                const fetchedAt = this.#now();
+                const decoded = decodeItems(response, job.site, job.kind, fetchedAt);
+                job.state = decoded.unsupported ? "unsupported" : "ok";
+                job.skipped = decoded.skipped; job.fetchedAt = fetchedAt;
+                this.state.items.push(...decoded.items);
               }
-              if (current()) this.#notify();
+            } catch (error) {
+              if (!current()) return;
+              const failure = error instanceof ApiError ? error : new ApiError("network");
+              if ("key" in job) { job.detailState = "fallback"; job.linkError = failure.code; }
+              else { job.state = "error"; job.error = failure.code; }
+              if (["auth", "html", "rate-limit"].includes(failure.code)) { fail(failure); return; }
             }
-          } catch (error) {
-            if (!current()) return;
-            const failure = error instanceof ApiError ? error : new ApiError("network");
-            scope.state = "error"; scope.error = failure.code;
-            if (["auth", "html", "rate-limit"].includes(failure.code)) { fail(failure); return; }
+            if (current()) this.#notify();
           }
-          if (current()) this.#notify();
-        }
-      };
-      await Promise.all(Array.from({ length: 4 }, worker));
+        };
+        await Promise.all(Array.from({ length: 4 }, worker));
+      }
       if (current()) this.state.fetchedAt = this.#now();
     } catch (error) { fail(error); }
   }

@@ -7,6 +7,26 @@ const sites = (n = 4) => Array.from({ length: n }, (_, i) => ({ id: `site-${i}`,
 const tick = () => new Promise<void>(resolve => setImmediate(resolve));
 const json = (url: string, n = 4): Response => Response.json(url.includes("/direct/site.json") ? { site_collection: url.includes("_start=0") ? sites(n) : [] } : url.includes("/assignment/") ? { assignment_collection: [] } : { sam_pub_collection: [] });
 
+test("all scopes finish before links, and a single course uses four link workers", async () => {
+  let scopes = 0, active = 0, peak = 0, links = 0;
+  const loader = new Loader(new SiriusApi(async input => {
+    const url = String(input);
+    if (url.includes("/direct/site.json")) return json(url, 1);
+    if (url.includes("/deepLink/")) {
+      assert.equal(scopes, 2);
+      links++; active++; peak = Math.max(peak, active);
+      await tick(); active--;
+      return Response.json({ assignmentId: url.split("/").at(-1)!.replace(".json", ""), assignmentUrl: "" });
+    }
+    await tick(); scopes++;
+    return url.includes("/assignment/") ? Response.json({ assignment_collection: Array.from({ length: 8 }, (_, i) => ({ id: `task-${i}`, context: "site-0", title: "Task", dueTime: null })) }) : json(url);
+  }), () => {});
+  await loader.refresh();
+  assert.equal(links, 8); assert.equal(peak, 4);
+  assert.equal(loader.state.items.length, 8);
+  await loader.refresh(); assert.equal(links, 8);
+});
+
 test("loader paginates to empty, caps concurrency at 4, coalesces refresh and honors memory cache", async () => {
   let active = 0, max = 0, requests = 0, now = 1000, changes = 0;
   const api = new SiriusApi(async url => {

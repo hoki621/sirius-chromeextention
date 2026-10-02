@@ -92,7 +92,18 @@ export function mountPanel(): (() => boolean) | undefined {
   let destroyed = false, timer: ReturnType<typeof setInterval> | undefined, preferenceRevision = 0;
   let returnFocus: HTMLElement | null = null, overdueExpanded = false;
   let writes = Promise.resolve();
-  const loader = new Loader(new SiriusApi(), () => { if (!destroyed) render(); }, Date.now,
+  let renderFrame: number | undefined;
+  const loader = new Loader(new SiriusApi(), () => {
+    if (destroyed) return;
+    // Clear private DOM immediately, including while the dialog or browser tab is hidden.
+    if (loader.state.error === "auth" || loader.state.error === "html") {
+      list.replaceChildren(); scopeRows.replaceChildren(); site.replaceChildren();
+      completed.clear(); filters.search = ""; filters.site = ""; search.value = "";
+      status.textContent = ""; render(); return;
+    }
+    if (!dialog.open || renderFrame !== undefined) return;
+    renderFrame = requestAnimationFrame(() => { renderFrame = undefined; render(); });
+  }, Date.now,
     assignmentNavigationLinks(document.querySelectorAll<HTMLAnchorElement>("nav#toolMenu a[href]")));
   function open(): boolean {
     if (!checkIdentity()) return false;
@@ -201,6 +212,7 @@ export function mountPanel(): (() => boolean) | undefined {
         link.setAttribute("aria-label", `${item.title} — ${destination}`);
         const course = element("span", item.site.title); course.className = "course";
         const route = element("p", destination); route.className = "route";
+        route.hidden = item.detailState === "direct";
         const deadline = element("p"), remaining = element("strong", remainingTime(item.deadline, now));
         deadline.className = "deadline"; remaining.className = "remaining";
         const date = element("time", item.deadline.state === "known" ? `${formatDate(item.deadline.at)} JST` : "公式画面で確認"); date.className = "meta";
@@ -222,6 +234,7 @@ export function mountPanel(): (() => boolean) | undefined {
     body.scrollTop = scrollTop;
   }
   function render(): void {
+    if (!checkIdentity() || !dialog.open) return;
     const state = loader.state, now = Date.now();
     refresh.disabled = state.loading || now < state.retryAt;
     const finished = state.scopes.filter(scope => scope.state !== "pending").length;
@@ -247,12 +260,12 @@ export function mountPanel(): (() => boolean) | undefined {
       row.append(link, document.createTextNode(` / ${scope.kind === "assignment" ? "課題" : "小テスト"}: ${description}${scope.fetchedAt !== undefined ? ` (${formatDate(scope.fetchedAt)} JST)` : ""}`)); scopeRows.append(row);
     }
     restoreFocus(scopeRows, focusedScope);
-    if (state.error === "auth" || state.error === "html") { completed.clear(); filters.search = ""; filters.site = ""; search.value = ""; }
     renderList();
   }
   function destroy(): void {
     if (destroyed) return;
     destroyed = true; observer.disconnect(); if (timer) clearInterval(timer);
+    if (renderFrame !== undefined) cancelAnimationFrame(renderFrame);
     storage?.onChanged.removeListener(changed); loader.clear(); completed.clear();
     runtime?.onMessage.removeListener(onMessage);
     dialog.close(); host.remove(); window.removeEventListener("pagehide", destroy);

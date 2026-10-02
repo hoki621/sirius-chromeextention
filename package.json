@@ -1,6 +1,6 @@
 {
   "name": "sirius-chromeextention",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "type": "module",
   "description": "Read-only study support for TUAT Sirius LMS",
