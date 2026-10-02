@@ -1,9 +1,10 @@
 import { ApiError, ORIGIN, validId } from "./api.ts";
+import type { Failure } from "./api.ts";
 
 export type Kind = "assignment" | "quiz";
 export type Site = { id: string; title: string; assignmentHref?: string };
 export type Deadline = { state: "known"; at: number } | { state: "none" | "unknown" };
-export type Item = { key: string; id: string; site: Site; kind: Kind; title: string; deadline: Deadline; href: string; fetchedAt: number };
+export type Item = { key: string; id: string; site: Site; kind: Kind; title: string; deadline: Deadline; href: string; fetchedAt: number; detailState?: "pending" | "direct" | "fallback"; linkError?: Failure };
 export type Group = "overdue" | "today" | "week" | "later" | "none" | "unknown";
 export const GROUPS: Record<Group, string> = { overdue: "期限超過", today: "今日", week: "明日から7日以内", later: "それ以降", none: "期限なし", unknown: "期限不明" };
 export function record(value: unknown): value is Record<string, unknown> {
@@ -52,6 +53,27 @@ export function assignmentToolLink(siteId: string): string {
   // ponytail: multiple assignment tools use Sakai's selection; add explicit selection only if needed.
   return `${courseLink(siteId)}/assignment.grades`;
 }
+export function decodeAssignmentDeepLink(value: unknown, siteId: string, assignmentId: string): string | undefined {
+  if (!validId(siteId) || !validId(assignmentId) || !record(value) || value.assignmentId !== assignmentId || typeof value.assignmentUrl !== "string") throw new ApiError("schema");
+  // Sakai returns an empty URL when no published, permitted destination is available.
+  if (value.assignmentUrl === "") return undefined;
+  let url: URL;
+  try { url = new URL(value.assignmentUrl); } catch { throw new ApiError("schema"); }
+  if (url.origin !== ORIGIN || url.username || url.password || url.hash || !/^\/portal\/directtool\/[A-Za-z0-9_~-]{1,200}$/.test(url.pathname)) throw new ApiError("schema");
+  const params = url.searchParams, allowed = ["assignmentId", "assignmentReference", "panel", "sakai_action"];
+  for (const key of params.keys()) if (!allowed.includes(key) || params.getAll(key).length !== 1) throw new ApiError("schema");
+  const action = params.get("sakai_action"), reference = `/assignment/a/${siteId}/${assignmentId}`;
+  if (params.get("panel") !== "Main" || !["doView_submission", "doView_assignment_honorPledge", "doView_assignment_as_student"].includes(action ?? "")) throw new ApiError("schema");
+  const id = params.get("assignmentId"), ref = params.get("assignmentReference");
+  if ((id !== null && id !== assignmentId && id !== reference) || (ref !== null && ref !== reference) ||
+    (ref === null && (action !== "doView_assignment_as_student" || id !== assignmentId))) throw new ApiError("schema");
+  // Reconstruct only the verified view parameters; never follow arbitrary API URLs.
+  const safe = new URL(url.pathname, ORIGIN);
+  if (id !== null) safe.searchParams.set("assignmentId", id);
+  if (ref !== null) safe.searchParams.set("assignmentReference", ref);
+  safe.searchParams.set("panel", "Main"); safe.searchParams.set("sakai_action", action!);
+  return safe.href;
+}
 export function assignmentNavigationLinks(links: Iterable<{ href: string; textContent: string | null }>): Map<string, string> {
   const found = new Map<string, string>(), ambiguous = new Set<string>();
   for (const link of links) {
@@ -77,7 +99,7 @@ export function decodeItems(value: unknown, site: Site, kind: Kind, fetchedAt: n
     if (!record(row) || !validId(row.id) || row.context !== site.id || !title(row.title) || seen.has(row.id)) { skipped++; continue; }
     seen.add(row.id);
     items.push({ key: JSON.stringify([site.id, kind, row.id]), id: row.id, site, kind, title: row.title,
-      deadline: decodeDeadline(row.dueTime), href: site.assignmentHref ?? assignmentToolLink(site.id), fetchedAt });
+      deadline: decodeDeadline(row.dueTime), href: site.assignmentHref ?? assignmentToolLink(site.id), fetchedAt, detailState: "pending" });
   }
   return { items, skipped, unsupported: false };
 }

@@ -25,10 +25,12 @@ test("fixed GET endpoints, credentials, conservative response errors and safe id
     assert.equal(options?.redirect, "error");
     return Response.json({});
   });
-  await api.sites(0, signal()); await api.assignments("sample-1", signal()); await api.quizzes("sample-1", signal());
-  assert.deepEqual(calls, [`${ORIGIN}/direct/site.json?_limit=200&_start=0`, `${ORIGIN}/direct/assignment/site/sample-1.json`, `${ORIGIN}/direct/sam_pub/context/sample-1.json`]);
+  await api.sites(0, signal()); await api.assignments("sample-1", signal()); await api.quizzes("sample-1", signal()); await api.assignmentDeepLink("sample-1", "task-1", signal());
+  assert.deepEqual(calls, [`${ORIGIN}/direct/site.json?_limit=200&_start=0`, `${ORIGIN}/direct/assignment/site/sample-1.json`, `${ORIGIN}/direct/sam_pub/context/sample-1.json`, `${ORIGIN}/direct/assignment/deepLink/sample-1/task-1.json`]);
   for (const bad of ["../x", "a/b", "a?x", "", "https://evil", "%2f"]) {
     assert.throws(() => api.assignments(bad, signal()), fails("schema"));
+    assert.throws(() => api.assignmentDeepLink(bad, "task", signal()), fails("schema"));
+    assert.throws(() => api.assignmentDeepLink("site", bad, signal()), fails("schema"));
   }
   for (const [status, code] of [[401, "auth"], [403, "forbidden"], [429, "rate-limit"], [500, "http"]] as const) {
     await assert.rejects(new SiriusApi(async () => new Response("private", { status })).sites(0, signal()), fails(code));

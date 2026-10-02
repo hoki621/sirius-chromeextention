@@ -197,7 +197,7 @@ export function mountPanel(): (() => boolean) | undefined {
       for (const item of matching) {
         const li = element("li"); li.className = "task";
         const link = element("a", item.title); link.className = "title"; link.href = item.href; link.dataset.item = item.key;
-        const destination = item.href === courseLink(item.site.id) ? "科目トップを開く（課題一覧のリンク未取得）" : "課題一覧を開く";
+        const destination = item.detailState === "direct" ? "課題を開く" : item.detailState === "pending" ? "課題一覧を開く（直接リンクを確認中）" : `課題一覧を開く（直接リンク未取得）: ${item.linkError ? ERRORS[item.linkError] : "公式APIからリンクが提供されませんでした。"}`;
         link.setAttribute("aria-label", `${item.title} — ${destination}`);
         const course = element("span", item.site.title); course.className = "course";
         const route = element("p", destination); route.className = "route";

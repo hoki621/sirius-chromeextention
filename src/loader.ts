@@ -1,6 +1,6 @@
 import { ApiError, SiriusApi } from "./api.ts";
 import type { Failure } from "./api.ts";
-import { decodeItems, decodeSites } from "./model.ts";
+import { decodeAssignmentDeepLink, decodeItems, decodeSites } from "./model.ts";
 import type { Item, Kind, Site } from "./model.ts";
 
 export const CACHE_MS = 5 * 60_000;
@@ -48,7 +48,10 @@ export class Loader {
       if (!current()) return;
       const failure = error instanceof ApiError ? error : new ApiError("network");
       this.state.error = failure.code;
-      if (failure.code === "rate-limit") this.state.retryAt = failure.retryAt ?? this.#now() + 60_000;
+      if (failure.code === "rate-limit") {
+        this.state.retryAt = failure.retryAt ?? this.#now() + 60_000;
+        for (const item of this.state.items) if (item.detailState === "pending") { item.detailState = "fallback"; item.linkError = failure.code; }
+      }
       if (failure.code === "auth" || failure.code === "html") {
         // Unknown HTML may be a login page: clear private data without claiming a verified logout.
         this.state = { ...empty(), loading: true, error: failure.code };
@@ -92,6 +95,24 @@ export class Loader {
             scope.skipped = decoded.skipped;
             scope.fetchedAt = fetchedAt;
             this.state.items.push(...decoded.items);
+            if (current()) this.#notify();
+            // Reuse the four existing workers: no second request pool or persistent link cache.
+            for (const item of decoded.items) {
+              if (!current()) return;
+              try {
+                const response = await this.#api.assignmentDeepLink(item.site.id, item.id, signal);
+                if (!current()) return;
+                const href = decodeAssignmentDeepLink(response, item.site.id, item.id);
+                item.detailState = href ? "direct" : "fallback";
+                if (href) item.href = href;
+              } catch (error) {
+                if (!current()) return;
+                const failure = error instanceof ApiError ? error : new ApiError("network");
+                item.detailState = "fallback"; item.linkError = failure.code;
+                if (["auth", "html", "rate-limit"].includes(failure.code)) { fail(failure); return; }
+              }
+              if (current()) this.#notify();
+            }
           } catch (error) {
             if (!current()) return;
             const failure = error instanceof ApiError ? error : new ApiError("network");

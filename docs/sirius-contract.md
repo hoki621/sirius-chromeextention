@@ -138,7 +138,7 @@ Sakaiの [SiteEntityProvider](https://github.com/sakaiproject/sakai/blob/master/
 
 このAPIと画面ナビゲーションの解釈は上流仕様・架空データでの実装であり、Siriusの応答を実測したものではない。通常Chromeでの課題一覧への遷移と互換性は利用者の実機確認に残す。
 
-## 0.2.1の課題リンク（2026-10-02）
+## 0.2.1の課題リンク（過去の実装、一覧経路は0.2.2の代替用）
 
 利用者から、特定科目だけ課題一覧へ移動するとの報告を受けた。0.2.0では表示中の科目は画面ナビゲーション、他科目は未実測のpages APIへ依存し、取得できない場合に科目トップへ戻していた。実SiriusのAPI失敗の種類までは確認できていない。
 
@@ -147,3 +147,24 @@ Sakaiの [SiteEntityProvider](https://github.com/sakaiproject/sakai/blob/master/
 表示中の公式ナビゲーションが一意に検証できる場合は、従来の配置IDリンクを再利用する。pages APIへの追加GETは行わない。通常の課題GETなどの認証失効・通信エラー処理は変更しない。
 
 2科目と現在科目3条件（なし・科目A・科目B）でURLと追加GETなしを自動検証した。短縮経路が実Siriusで課題一覧へ到達するかは利用者による実機確認待ちであり、上流実装の確認だけで実機合格とはしない。
+
+## 0.2.2の個別課題リンク仕様（2026-10-02）
+
+### 上流で確認した契約
+
+参照版はSakai 23.xのcommit `83ed1d5971c78f76219f0fae17c9e224cd3346d0`。Siriusの稼働版を同版と断定するものではない。
+
+- [AssignmentEntityProvider](https://github.com/sakaiproject/sakai/blob/83ed1d5971c78f76219f0fae17c9e224cd3346d0/assignment/tool/src/java/org/sakaiproject/assignment/entityproviders/AssignmentEntityProvider.java) は `/direct/assignment/deepLink/{context}/{assignmentId}.json` のcustom actionで `assignmentId`、`assignmentTitle`、`assignmentUrl` を返す。通常の課題一覧は `SimpleAssignment` のリストであり、`entityURL` が個別画面のURLとは限らない。
+- [AssignmentServiceImpl](https://github.com/sakaiproject/sakai/blob/83ed1d5971c78f76219f0fae17c9e224cd3346d0/assignment/impl/src/java/org/sakaiproject/assignment/impl/AssignmentServiceImpl.java) の `getDeepLink` は現在ユーザーの権限を確認し、`/portal/directtool/{placementId}` と課題参照・閲覧actionを返す。未公開・権限条件不成立なら空文字を返す場合がある。教員向けには採点・編集側のactionも生成するため、応答をそのまま信用しない。
+- [AssignmentAction](https://github.com/sakaiproject/sakai/blob/83ed1d5971c78f76219f0fae17c9e224cd3346d0/assignment/tool/src/java/org/sakaiproject/assignment/tool/AssignmentAction.java) の `doView_submission` は課題参照を受け取り、受付状態・既存提出・誓約条件で課題/提出/成績/誓約案内の表示を選ぶ。課題が閲覧できなければ公式一覧に戻す場合がある。`doAccept_assignment_honor_pledge` や提出処理とは別のactionである。通常の閲覧イベントや画面セッション更新が起こることはある。
+- `AssignmentEntity.getUrl` はaccess URLであり、assignment serviceのaccess経路はダウンロードに使われる。`entityURL`・`portalURL`を画面URLと推測して使わない。
+
+### 実装順序と判定
+
+1. 親Issue #1、取得 #4、検証 #5、UI #7の本文と受け入れ条件を直接リンク優先へ更新する。
+2. 課題ID/contextを既存の一覧検証で確定し、同一originのdeepLink GETを追加する。一覧データは先に表示し、既存4ワーカー内で課題URLを順次反映する。追加の並列プールは作らない。
+3. 応答の課題ID、HTTPS origin、資格情報なし、directtool配置ID、課題参照、panel、閲覧actionを検証し、許可したパラメーターだけでURLを再構成する。許可actionは `doView_submission`、`doView_assignment_honorPledge`、`doView_assignment_as_student`。重複/未知パラメーター、他課題・他科目、提出/採点/誓約同意actionは拒否する。
+4. 成功時は「課題を開く」。空URL・未対応・不正応答・権限/通信失敗時だけ理由付き課題一覧リンクへ代替する。401/未知HTMLでは学習情報消去、429では新規取得停止。リンク先への自動アクセスは行わない。
+5. 合成応答でURL検証・科目/課題別リンク・追加GET・4並列・5分キャッシュ・各失敗を検証する。通常ChromeのSirius実機で異なる科目/課題から正しい個別画面を開けるかは別途確認する。
+
+SiriusのdeepLink実応答・公開前後・期限後・提出済み・誓約ありの実遷移は未確認。APIが提供しないURLを推測で補わず、実機結果なしにIssue #2/#10を完了としない。

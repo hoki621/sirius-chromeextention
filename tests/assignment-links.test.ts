@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ApiError, ORIGIN, SiriusApi } from "../src/api.ts";
-import { assignmentLink, assignmentToolLink, assignmentNavigationLinks, remainingTime } from "../src/model.ts";
+import { assignmentLink, assignmentToolLink, assignmentNavigationLinks, decodeAssignmentDeepLink, remainingTime } from "../src/model.ts";
 import { Loader } from "../src/loader.ts";
 
 test("official assignment navigation rejects unsafe and ambiguous links", () => {
@@ -16,13 +16,16 @@ test("official assignment navigation rejects unsafe and ambiguous links", () => 
   assert.throws(() => assignmentLink("course", "x/y"), ApiError);
 });
 
-test("all courses link to assignments without extra tool requests or current-course dependence", async () => {
+const deepLink = (site: string, id = "task", action = "doView_submission") => ({ assignmentId: id, assignmentUrl: `${ORIGIN}/portal/directtool/tool-${site}?${new URLSearchParams({ assignmentId: id, assignmentReference: `/assignment/a/${site}/${id}`, panel: "Main", sakai_action: action })}` });
+
+test("all courses link to individual assignments without pages requests or current-course dependence", async () => {
   for (const currentCourse of [undefined, "course-a", "course-b"]) {
     const requests: string[] = [];
     const loader = new Loader(new SiriusApi(async input => {
       const url = String(input); requests.push(url);
       assert.ok(!url.endsWith("/pages.json"));
       if (url.includes("/direct/site.json")) return Response.json({ site_collection: url.includes("_start=0") ? ["course-a", "course-b"].map(id => ({ id, title: id, published: true })) : [] });
+      if (url.includes("/deepLink/")) return Response.json(deepLink(url.includes("course-a") ? "course-a" : "course-b"));
       if (url.includes("/assignment/")) {
         const context = url.includes("course-a") ? "course-a" : "course-b";
         return Response.json({ assignment_collection: [{ id: "task", context, title: "Task", dueTime: null }] });
@@ -30,12 +33,66 @@ test("all courses link to assignments without extra tool requests or current-cou
       return Response.json({ sam_pub_collection: [] });
     }), () => {}, Date.now, currentCourse ? new Map([[currentCourse, assignmentLink(currentCourse, "nav-tool")]]) : new Map());
     await loader.refresh();
-    assert.equal(requests.length, 6);
+    assert.equal(requests.length, 8);
     assert.equal(loader.state.items.length, 2);
     for (const item of loader.state.items) {
-      assert.equal(item.href, item.site.id === currentCourse ? assignmentLink(item.site.id, "nav-tool") : `${ORIGIN}/portal/site/${item.site.id}/assignment.grades`);
+      assert.equal(item.detailState, "direct");
+      assert.equal(item.href, decodeAssignmentDeepLink(deepLink(item.site.id), item.site.id, item.id));
     }
-    await loader.refresh(); assert.equal(requests.length, 6);
+    await loader.refresh(); assert.equal(requests.length, 8);
+  }
+});
+
+test("deep links accept only matching official student view actions and parameters", () => {
+  for (const action of ["doView_submission", "doView_assignment_honorPledge", "doView_assignment_as_student"]) assert.ok(decodeAssignmentDeepLink(deepLink("course", "task", action), "course", "task"));
+  assert.equal(decodeAssignmentDeepLink({ assignmentId: "task", assignmentUrl: "" }, "course", "task"), undefined);
+  const original = deepLink("course");
+  const badUrls = [
+    original.assignmentUrl.replace(ORIGIN, "https://evil.invalid"),
+    original.assignmentUrl.replace("https://", "http://"),
+    original.assignmentUrl.replace("https://", "https://user:pass@"),
+    original.assignmentUrl.replace("/directtool/", "/tool-reset/"),
+    original.assignmentUrl + "#fragment", original.assignmentUrl + "&assignmentId=task", original.assignmentUrl + "&submitterId=someone",
+    deepLink("other").assignmentUrl, deepLink("course", "other").assignmentUrl,
+    ...["doSubmit", "doGrade_assignment", "doAccept_assignment_honor_pledge", "doView_assignment"].map(action => deepLink("course", "task", action).assignmentUrl),
+  ];
+  for (const assignmentUrl of badUrls) assert.throws(() => decodeAssignmentDeepLink({ assignmentId: "task", assignmentUrl }, "course", "task"), ApiError);
+  assert.throws(() => decodeAssignmentDeepLink({ ...original, assignmentId: "other" }, "course", "task"), ApiError);
+  assert.throws(() => decodeAssignmentDeepLink({}, "course", "task"), ApiError);
+  const readonly = new URL(original.assignmentUrl); readonly.searchParams.delete("assignmentReference"); readonly.searchParams.set("sakai_action", "doView_assignment_as_student");
+  assert.ok(decodeAssignmentDeepLink({ assignmentId: "task", assignmentUrl: readonly.href }, "course", "task"));
+  readonly.searchParams.set("sakai_action", "doView_submission");
+  assert.throws(() => decodeAssignmentDeepLink({ assignmentId: "task", assignmentUrl: readonly.href }, "course", "task"), ApiError);
+});
+
+test("link failures retain assignments, authentication clears them, rate limits stop links, and concurrency stays bounded", async () => {
+  for (const result of ["ok", "forbidden", "http", "empty", "schema", "auth", "html", "rate"] as const) {
+    let active = 0, peak = 0, links = 0;
+    const loader = new Loader(new SiriusApi(async input => {
+      active++; peak = Math.max(peak, active);
+      await new Promise(resolve => setImmediate(resolve)); active--;
+      const url = String(input);
+      if (url.includes("/direct/site.json")) return Response.json({ site_collection: url.includes("_start=0") ? ["a", "b", "c", "d", "e"].map(id => ({ id, title: id, published: true })) : [] });
+      const site = url.split("/").at(-2)!;
+      if (url.includes("/deepLink/")) {
+        links++;
+        if (["forbidden", "http", "auth", "rate"].includes(result)) return new Response("", { status: result === "forbidden" ? 403 : result === "http" ? 404 : result === "auth" ? 401 : 429 });
+        if (result === "html") return new Response("<html></html>", { headers: { "content-type": "text/html" } });
+        return Response.json(result === "schema" ? {} : result === "empty" ? { assignmentId: "task", assignmentUrl: "" } : deepLink(site));
+      }
+      if (url.includes("/assignment/site/")) return Response.json({ assignment_collection: [{ id: "task", context: url.split("/").at(-1)!.replace(".json", ""), title: "Task", dueTime: null }] });
+      return Response.json({ sam_pub_collection: [] });
+    }), () => {});
+    await loader.refresh(); assert.ok(peak <= 4);
+    if (result === "auth" || result === "html") { assert.equal(loader.state.error, result); assert.equal(loader.state.items.length, 0); }
+    else if (result === "rate") { assert.equal(loader.state.error, "rate-limit"); assert.ok(links <= 4); }
+    else {
+      assert.equal(loader.state.items.length, 5);
+      for (const item of loader.state.items) {
+        assert.equal(item.detailState, result === "ok" ? "direct" : "fallback");
+        if (result !== "ok") assert.equal(item.href, assignmentToolLink(item.site.id));
+      }
+    }
   }
 });
 

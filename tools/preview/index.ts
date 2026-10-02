@@ -28,6 +28,11 @@ window.fetch = async function(this: unknown, input, options) {
       { id: "demo-a", title: "情報工学（架空）", type: "project", published: true },
       { id: "demo-b", title: "物理学（架空）", type: "project", published: true },
     ] : [] });
+    if (url.pathname.includes("/deepLink/")) {
+      if (scenario === "link-failure") return new Response("", { status: 403 });
+      const siteId = url.pathname.split("/").at(-2)!, id = url.pathname.split("/").at(-1)!.replace(".json", "");
+      return Response.json({ assignmentId: id, assignmentUrl: `${url.origin}/portal/directtool/tool-${siteId}?${new URLSearchParams({ assignmentId: id, assignmentReference: `/assignment/a/${siteId}/${id}`, panel: "Main", sakai_action: "doView_submission" })}` });
+    }
     if (url.pathname.includes("/sam_pub/")) return Response.json({ sam_pub_collection: scenario === "partial" ? [{}] : [] });
     if (scenario === "partial" && url.pathname.includes("demo-b")) return new Response("", { status: 403 });
     if (scenario === "malformed") return Response.json({ unexpected: [] });
