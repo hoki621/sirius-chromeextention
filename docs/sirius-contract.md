@@ -168,3 +168,10 @@ Sakaiの [SiteEntityProvider](https://github.com/sakaiproject/sakai/blob/master/
 5. 合成応答でURL検証・科目/課題別リンク・追加GET・4並列・5分キャッシュ・各失敗を検証する。通常ChromeのSirius実機で異なる科目/課題から正しい個別画面を開けるかは別途確認する。
 
 SiriusのdeepLink実応答・公開前後・期限後・提出済み・誓約ありの実遷移は未確認。APIが提供しないURLを推測で補わず、実機結果なしにIssue #2/#10を完了としない。
+
+### 0.2.3: JSON包装形式への対応
+
+利用者から0.2.2で全件「未対応の応答形式」と報告された。実JSONは受け取っていない。
+[EntityActionsManager](https://github.com/sakaiproject/sakai/blob/23.x/entitybroker/rest/src/java/org/sakaiproject/entitybroker/rest/EntityActionsManager.java) はMap戻り値を `EntityDataUtils.makeEntityData` で包む。[EntityEncodingManager](https://github.com/sakaiproject/sakai/blob/23.x/entitybroker/rest/src/java/org/sakaiproject/entitybroker/rest/EntityEncodingManager.java) はVIEW_LISTで `{entityPrefix:"assignment", assignment_collection:[...]}` を出力し、MapのEntityDataは `data` を持つオブジェクトとしてエンコードされる経路がある。APIメソッドの戻り値だけを確認して包装なしと仮定した0.2.2のテストは不十分だった。
+
+0.2.3では単一要素の `assignment_collection` を展開し、1段の `data` 包装も展開した後に、従来と同じ課題/URL検証を行う。空・複数要素・異なるentityPrefix・直下フィールドとの曖昧な混在・多重data包装は拒否する。仕様に沿う包装付き合成応答は再現・修正済みだが、実Siriusの応答がこの形か、表示エラーが解消するかは未確認。

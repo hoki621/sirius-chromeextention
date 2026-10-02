@@ -31,7 +31,7 @@ window.fetch = async function(this: unknown, input, options) {
     if (url.pathname.includes("/deepLink/")) {
       if (scenario === "link-failure") return new Response("", { status: 403 });
       const siteId = url.pathname.split("/").at(-2)!, id = url.pathname.split("/").at(-1)!.replace(".json", "");
-      return Response.json({ assignmentId: id, assignmentUrl: `${url.origin}/portal/directtool/tool-${siteId}?${new URLSearchParams({ assignmentId: id, assignmentReference: `/assignment/a/${siteId}/${id}`, panel: "Main", sakai_action: "doView_submission" })}` });
+      return Response.json({ entityPrefix: "assignment", assignment_collection: [{ data: { assignmentId: id, assignmentUrl: `${url.origin}/portal/directtool/tool-${siteId}?${new URLSearchParams({ assignmentId: id, assignmentReference: `/assignment/a/${siteId}/${id}`, panel: "Main", sakai_action: "doView_submission" })}` } }] });
     }
     if (url.pathname.includes("/sam_pub/")) return Response.json({ sam_pub_collection: scenario === "partial" ? [{}] : [] });
     if (scenario === "partial" && url.pathname.includes("demo-b")) return new Response("", { status: 403 });

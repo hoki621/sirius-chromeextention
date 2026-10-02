@@ -65,6 +65,17 @@ test("deep links accept only matching official student view actions and paramete
   assert.throws(() => decodeAssignmentDeepLink({ assignmentId: "task", assignmentUrl: readonly.href }, "course", "task"), ApiError);
 });
 
+test("EntityBroker collection and EntityData wrappers preserve all deep-link validation", () => {
+  const link = deepLink("course"), expected = decodeAssignmentDeepLink(link, "course", "task");
+  const wrappers = [(data: unknown) => ({ data }), (data: unknown) => ({ entityPrefix: "assignment", assignment_collection: [{ data }] }), (data: unknown) => ({ assignment_collection: [data] })];
+  for (const wrap of wrappers) {
+    assert.equal(decodeAssignmentDeepLink(wrap(link), "course", "task"), expected);
+    assert.equal(decodeAssignmentDeepLink(wrap({ assignmentId: "task", assignmentUrl: "" }), "course", "task"), undefined);
+    for (const bad of [{ ...link, assignmentId: "other" }, deepLink("other"), deepLink("course", "task", "doSubmit"), { ...link, assignmentUrl: "https://evil.invalid/" }]) assert.throws(() => decodeAssignmentDeepLink(wrap(bad), "course", "task"), ApiError);
+  }
+  for (const bad of [{ assignment_collection: [] }, { assignment_collection: [link, link] }, { entityPrefix: "other", assignment_collection: [link] }, { data: { data: link } }, { ...link, data: link }, { ...link, assignment_collection: [link] }]) assert.throws(() => decodeAssignmentDeepLink(bad, "course", "task"), ApiError);
+});
+
 test("link failures retain assignments, authentication clears them, rate limits stop links, and concurrency stays bounded", async () => {
   for (const result of ["ok", "forbidden", "http", "empty", "schema", "auth", "html", "rate"] as const) {
     let active = 0, peak = 0, links = 0;
@@ -78,7 +89,7 @@ test("link failures retain assignments, authentication clears them, rate limits 
         links++;
         if (["forbidden", "http", "auth", "rate"].includes(result)) return new Response("", { status: result === "forbidden" ? 403 : result === "http" ? 404 : result === "auth" ? 401 : 429 });
         if (result === "html") return new Response("<html></html>", { headers: { "content-type": "text/html" } });
-        return Response.json(result === "schema" ? {} : result === "empty" ? { assignmentId: "task", assignmentUrl: "" } : deepLink(site));
+        return Response.json(result === "schema" ? {} : { entityPrefix: "assignment", assignment_collection: [{ data: result === "empty" ? { assignmentId: "task", assignmentUrl: "" } : deepLink(site) }] });
       }
       if (url.includes("/assignment/site/")) return Response.json({ assignment_collection: [{ id: "task", context: url.split("/").at(-1)!.replace(".json", ""), title: "Task", dueTime: null }] });
       return Response.json({ sam_pub_collection: [] });

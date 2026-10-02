@@ -54,6 +54,17 @@ export function assignmentToolLink(siteId: string): string {
   return `${courseLink(siteId)}/assignment.grades`;
 }
 export function decodeAssignmentDeepLink(value: unknown, siteId: string, assignmentId: string): string | undefined {
+  // EntityBroker VIEW_LIST actions wrap their single Map result in a collection/EntityData.
+  if (record(value) && Object.hasOwn(value, "assignment_collection")) {
+    const rows = collection(value, "assignment_collection");
+    if (rows.length !== 1 || (value.entityPrefix !== undefined && value.entityPrefix !== "assignment") ||
+      Object.hasOwn(value, "assignmentId") || Object.hasOwn(value, "assignmentUrl")) throw new ApiError("schema");
+    value = rows[0];
+  }
+  if (record(value) && Object.hasOwn(value, "data")) {
+    if (Object.hasOwn(value, "assignmentId") || Object.hasOwn(value, "assignmentUrl")) throw new ApiError("schema");
+    value = value.data;
+  }
   if (!validId(siteId) || !validId(assignmentId) || !record(value) || value.assignmentId !== assignmentId || typeof value.assignmentUrl !== "string") throw new ApiError("schema");
   // Sakai returns an empty URL when no published, permitted destination is available.
   if (value.assignmentUrl === "") return undefined;
