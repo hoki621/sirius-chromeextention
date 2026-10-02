@@ -28,6 +28,11 @@ window.fetch = async function(this: unknown, input, options) {
       { id: "demo-a", title: "情報工学（架空）", type: "project", published: true },
       { id: "demo-b", title: "物理学（架空）", type: "project", published: true },
     ] : [] });
+    if (url.pathname.endsWith("/pages.json")) {
+      if (scenario === "link-failure") return new Response("", { status: 403 });
+      const siteId = url.pathname.includes("demo-a") ? "demo-a" : "demo-b";
+      return Response.json([{ siteId, tools: [{ siteId, id: `tool-${siteId}`, placementId: `tool-${siteId}`, toolId: "sakai.assignment.grades" }] }]);
+    }
     if (url.pathname.includes("/sam_pub/")) return Response.json({ sam_pub_collection: scenario === "partial" ? [{}] : [] });
     if (scenario === "partial" && url.pathname.includes("demo-b")) return new Response("", { status: 403 });
     if (scenario === "malformed") return Response.json({ unexpected: [] });
@@ -37,12 +42,14 @@ window.fetch = async function(this: unknown, input, options) {
       { id: "two", context: siteId, title: "来週の演習（架空）", dueTime: date(3 * day) },
       { id: "three", context: siteId, title: "過去の課題（架空）", dueTime: date(-day) },
       { id: "four", context: siteId, title: '<img src=x onerror="alert(1)"> — 文字列表示テスト', dueTime: null },
+      { id: "five", context: siteId, title: "長い課題タイトルの表示確認：講義で学んだ手法を比較し、選定理由と実験結果を詳しく記載するレポート（架空）", dueTime: date(14 * day) },
     ] });
   } finally { active--; paint(); }
 };
 paint();
-mountPanel(); mountPanel(); // Duplicate insertion must be harmless.
-if (new URL(location.href).searchParams.has("open")) document.getElementById("sirius-study-helper")?.shadowRoot?.querySelector<HTMLButtonElement>(".launch")?.click();
+const openPanel = mountPanel(); mountPanel(); // Duplicate insertion must be harmless.
+document.getElementById("preview-open")!.addEventListener("click", () => { openPanel?.(); });
+if (parameters.has("open")) openPanel?.();
 document.getElementById("official-form")!.addEventListener("submit", event => { event.preventDefault(); document.getElementById("official-result")!.textContent = "ローカルフォームの操作を確認"; });
 document.getElementById("switch-account")!.addEventListener("click", () => { (document.querySelector("nav a") as HTMLAnchorElement).href = "https://lms.sirius.tuat.ac.jp/portal/site/%7Edemo-other"; });
 document.getElementById("expire-session")!.addEventListener("click", () => { scenario = "auth"; document.getElementById("official-result")!.textContent = "次の模擬GETは401"; });

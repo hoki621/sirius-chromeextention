@@ -125,3 +125,15 @@ Codex内蔵ブラウザに `dist` を読み込み、公式の課題一覧で試�
 - [調査Issue #2](https://github.com/hoki621/sirius-chromeextention/issues/2)
 - [SiriusのAPI一覧](https://lms.sirius.tuat.ac.jp/direct/describe)
 - [Siriusのsite説明](https://lms.sirius.tuat.ac.jp/direct/site/describe)
+
+## 0.2.0の課題リンク解決（2026-10-02、実Siriusは未検証）
+
+利用者から、科目トップではなく `/portal/site/{siteId}/tool/{placementId}?panel=Main` の公式課題一覧へ移動したいとの要望と、実例URLの提供があった。実値は製品へ埋め込まない。タイトル内の日付の誤りは課題作成者側のものとして修正対象外とし、引き続き `dueTime` を表示する。
+
+Sakaiの [SiteEntityProvider](https://github.com/sakaiproject/sakai/blob/master/entitybroker/tool/src/main/java/org/sakaiproject/entitybroker/providers/SiteEntityProvider.java) の `pages` アクションでは、ページに `siteId`・`tools`、ツールに `toolId`・`id`・`placementId`・`siteId` が含まれる。`/direct/site/{siteId}/pages.json` を読み取り、同科目の `sakai.assignment.grades` の配置IDが一意な場合だけ公式課題一覧URLを組み立てる。応答内のURLは利用しない。配列または `site_collection` ラッパー以外は未対応とする。
+
+表示中の `nav#toolMenu` に、同一origin・妥当な科目/配置IDの「課題」または「Assignments」リンクがあればそれを再利用する。リンクのクエリは引き継がず、`panel=Main` のみ生成する。複数配置で曖昧な科目はAPIによる確認へ進み、APIでも曖昧なら科目トップを明示した代替リンクにする。
+
+追加GETは課題がある科目だけ、最大同時4件の既存キュー内で行う。403・未知JSON・通信失敗で課題一覧を失わず、リンク未取得を表示する。401/未知HTMLでは既存の保守的な情報消去、429ではキュー停止と再試行待機を適用する。
+
+このAPIと画面ナビゲーションの解釈は上流仕様・架空データでの実装であり、Siriusの応答を実測したものではない。通常Chromeでの課題一覧への遷移と互換性は利用者の実機確認に残す。

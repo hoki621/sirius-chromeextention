@@ -1,10 +1,10 @@
 import { ApiError, SiriusApi } from "./api.ts";
 import type { Failure } from "./api.ts";
-import { decodeItems, decodeSites } from "./model.ts";
+import { decodeAssignmentLink, decodeItems, decodeSites } from "./model.ts";
 import type { Item, Kind, Site } from "./model.ts";
 
 export const CACHE_MS = 5 * 60_000;
-export type Scope = { site: Site; kind: Kind; state: "pending" | "ok" | "unsupported" | "error"; skipped: number; error?: Failure; fetchedAt?: number };
+export type Scope = { site: Site; kind: Kind; state: "pending" | "ok" | "unsupported" | "error"; skipped: number; error?: Failure; linkError?: Failure; fetchedAt?: number };
 export type LoadState = { loading: boolean; sites: Site[]; items: Item[]; scopes: Scope[]; fetchedAt: number | null; error: Failure | null; retryAt: number; skippedSites: number; pagingComplete: boolean };
 function empty(): LoadState {
   return { loading: false, sites: [], items: [], scopes: [], fetchedAt: null, error: null, retryAt: 0, skippedSites: 0, pagingComplete: false };
@@ -14,10 +14,13 @@ export class Loader {
   readonly #api: SiriusApi;
   readonly #notify: () => void;
   readonly #now: () => number;
+  readonly #knownLinks: ReadonlyMap<string, string>;
   #controller = new AbortController();
   #generation = 0;
   #task: Promise<void> | null = null;
-  constructor(api: SiriusApi, notify: () => void, now = Date.now) { this.#api = api; this.#notify = notify; this.#now = now; }
+  constructor(api: SiriusApi, notify: () => void, now = Date.now, knownLinks: ReadonlyMap<string, string> = new Map()) {
+    this.#api = api; this.#notify = notify; this.#now = now; this.#knownLinks = knownLinks;
+  }
   refresh(force = false): Promise<void> {
     if (this.#task) return this.#task;
     if (this.#now() < this.state.retryAt) return Promise.resolve();
@@ -64,6 +67,10 @@ export class Loader {
         if (decoded.count === 0) { this.state.pagingComplete = true; break; }
         if (decoded.ids.some(id => seen.has(id))) throw new ApiError("schema");
         decoded.ids.forEach(id => seen.add(id));
+        for (const site of decoded.sites) {
+          const href = this.#knownLinks.get(site.id);
+          if (href) site.assignmentHref = href;
+        }
         this.state.sites.push(...decoded.sites);
         this.state.skippedSites += decoded.skipped;
         start += decoded.count;
@@ -81,6 +88,22 @@ export class Loader {
             if (!current()) return;
             const fetchedAt = this.#now();
             const decoded = decodeItems(response, scope.site, scope.kind, fetchedAt);
+            if (scope.kind === "assignment" && decoded.items.length && !scope.site.assignmentHref) {
+              try {
+                const pages = await this.#api.pages(scope.site.id, signal);
+                if (!current()) return;
+                const href = decodeAssignmentLink(pages, scope.site.id);
+                if (href) {
+                  scope.site.assignmentHref = href;
+                  for (const item of decoded.items) item.href = href;
+                }
+              } catch (error) {
+                if (!current()) return;
+                const failure = error instanceof ApiError ? error : new ApiError("network");
+                scope.linkError = failure.code;
+                if (["auth", "html", "rate-limit"].includes(failure.code)) { fail(failure); return; }
+              }
+            }
             scope.state = decoded.unsupported ? "unsupported" : "ok";
             scope.skipped = decoded.skipped;
             scope.fetchedAt = fetchedAt;

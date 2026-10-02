@@ -6,3 +6,5 @@ probe-dist/
 *.log
 .env
 .env.*
+.playwright-cli/
+output/playwright/

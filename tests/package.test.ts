@@ -21,7 +21,7 @@ test("diagnostic build stays separate and requests no extension API permissions"
 
 test("built package has minimal MV3 permissions and no runtime dependencies", () => {
   execFileSync(process.execPath, [fileURLToPath(new URL("scripts/build.mjs", root))]);
-  assert.deepEqual(readdirSync(new URL("dist/", root)).sort(), ["content.js", "manifest.json"]);
+  assert.deepEqual(readdirSync(new URL("dist/", root)).sort(), ["CREDITS.md", "content.js", "icon.png", "manifest.json", "popup.html", "popup.js"]);
   const manifest = JSON.parse(readFileSync(new URL("dist/manifest.json", root), "utf8"));
   const pkg = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
   assert.equal(manifest.manifest_version, 3);
@@ -29,10 +29,19 @@ test("built package has minimal MV3 permissions and no runtime dependencies", ()
   assert.deepEqual(manifest.permissions, ["storage"]);
   assert.equal(manifest.host_permissions, undefined);
   assert.equal(manifest.background, undefined);
+  assert.deepEqual(manifest.action, { default_title: "Siriusの課題一覧を開く", default_popup: "popup.html", default_icon: "icon.png" });
+  const icon = readFileSync(new URL("dist/icon.png", root));
+  assert.equal(icon.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  assert.equal(icon.readUInt32BE(16), 32); assert.equal(icon.readUInt32BE(20), 32);
   assert.equal(manifest.web_accessible_resources, undefined);
   assert.equal(pkg.dependencies, undefined);
   const bundled = readFileSync(new URL("dist/content.js", root), "utf8");
   assert.doesNotMatch(bundled, /sirius-preview-settings|installMockStorage|読み取り診断を実行/);
+  assert.doesNotMatch(bundled, /学習リストを開く/);
+  const popup = readFileSync(new URL("dist/popup.js", root), "utf8");
+  assert.doesNotMatch(popup, /fetch\(|cookies|storage/);
+  assert.doesNotMatch(readFileSync(new URL("dist/popup.html", root), "utf8"), /(?:src|href)=["']https?:\/\/(?!lms\.sirius\.tuat\.ac\.jp)/);
+  assert.match(readFileSync(new URL("dist/CREDITS.md", root), "utf8"), /Comfortable PandA/);
   assert.deepEqual(manifest.content_scripts, [{
     matches: [
       "https://lms.sirius.tuat.ac.jp/portal",
