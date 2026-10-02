@@ -28,11 +28,6 @@ window.fetch = async function(this: unknown, input, options) {
       { id: "demo-a", title: "情報工学（架空）", type: "project", published: true },
       { id: "demo-b", title: "物理学（架空）", type: "project", published: true },
     ] : [] });
-    if (url.pathname.endsWith("/pages.json")) {
-      if (scenario === "link-failure") return new Response("", { status: 403 });
-      const siteId = url.pathname.includes("demo-a") ? "demo-a" : "demo-b";
-      return Response.json([{ siteId, tools: [{ siteId, id: `tool-${siteId}`, placementId: `tool-${siteId}`, toolId: "sakai.assignment.grades" }] }]);
-    }
     if (url.pathname.includes("/sam_pub/")) return Response.json({ sam_pub_collection: scenario === "partial" ? [{}] : [] });
     if (scenario === "partial" && url.pathname.includes("demo-b")) return new Response("", { status: 403 });
     if (scenario === "malformed") return Response.json({ unexpected: [] });

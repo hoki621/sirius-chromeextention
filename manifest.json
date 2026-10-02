@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sirius 学習支援",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Sirius LMSの課題を読み取り専用で一覧表示する非公式拡張。検証中の試用版です。",
   "permissions": ["storage"],
   "icons": { "32": "icon.png" },

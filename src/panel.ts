@@ -105,8 +105,6 @@ export function mountPanel(): (() => boolean) | undefined {
   const close = button("閉じる", () => dialog.close());
   actions.append(refresh, close); header.append(heading, actions);
   const notice = element("p", "非公式・読み取り専用。提出・受験は公式画面で。"); notice.className = "note";
-  const limits = element("p", "試用版です。小テストの非空データと全科目の網羅性は未検証です。表示なしでも、課題なしとは判断できません。");
-  const localNote = element("p", "完了チェックは「自分のリストで完了」の印で、提出済みを意味しません。アカウント識別が未検証のため、このページ内だけで保持し、再読み込み・移動で消えます。"); localNote.className = "note";
   const filterRow = element("div"); filterRow.className = "filters";
   const search = element("input"); search.type = "search"; search.placeholder = "課題名で検索";
   const searchLabel = element("label"); searchLabel.className = "search";
@@ -132,13 +130,8 @@ export function mountPanel(): (() => boolean) | undefined {
     });
   });
   scopes.append(element("summary", "取得範囲・科目別の結果"), scopeRows);
-  const help = element("details"); help.append(element("summary", "使い方・制限"), limits, localNote, erase, storageNote);
-  const credits = element("details"), creditLink = element("a", "Comfortable PandA");
-  creditLink.href = "https://github.com/das08/ComfortablePandA"; creditLink.target = "_blank"; creditLink.rel = "noopener noreferrer";
-  const creditText = element("p", "締切別の整理、科目ラベル、日時と残り時間の表示は ");
-  creditText.append(creditLink, document.createTextNode(" のUIを参考にしました。開発者・貢献者の皆さまに感謝します。本拡張は独立した非公式プロジェクトです。"));
-  credits.append(element("summary", "参考プロジェクト"), creditText);
-  top.append(header, status, searchLabel, filterDetails); footer.append(notice, help, scopes, credits);
+  scopes.append(erase);
+  top.append(header, status, searchLabel, filterDetails); footer.append(notice, scopes, storageNote);
   body.append(warning, list, footer); dialog.append(top, body);
   shadow.append(style, dialog); main.before(host);
   const onMessage: MessageListener = (message, sender, reply) => {
@@ -251,7 +244,7 @@ export function mountPanel(): (() => boolean) | undefined {
       const description = scope.state === "ok" ? `取得成功${scope.skipped ? `・形式不明 ${scope.skipped}件除外` : ""}` : scope.state === "pending" ? state.loading ? "待機中" : "未取得" : scope.state === "unsupported" ? "非空の小テストは未対応" : ERRORS[scope.error ?? "network"];
       const row = element("li"); row.className = "scope-row"; const link = element("a", scope.site.title); link.href = courseLink(scope.site.id);
       link.dataset.scope = JSON.stringify([scope.site.id, scope.kind]);
-      row.append(link, document.createTextNode(` / ${scope.kind === "assignment" ? "課題" : "小テスト"}: ${description}${scope.fetchedAt !== undefined ? ` (${formatDate(scope.fetchedAt)} JST)` : ""}${scope.linkError ? `／課題リンク未取得: ${ERRORS[scope.linkError]}` : ""}`)); scopeRows.append(row);
+      row.append(link, document.createTextNode(` / ${scope.kind === "assignment" ? "課題" : "小テスト"}: ${description}${scope.fetchedAt !== undefined ? ` (${formatDate(scope.fetchedAt)} JST)` : ""}`)); scopeRows.append(row);
     }
     restoreFocus(scopeRows, focusedScope);
     if (state.error === "auth" || state.error === "html") { completed.clear(); filters.search = ""; filters.site = ""; search.value = ""; }

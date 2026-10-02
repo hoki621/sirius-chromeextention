@@ -1,10 +1,10 @@
 import { ApiError, SiriusApi } from "./api.ts";
 import type { Failure } from "./api.ts";
-import { decodeAssignmentLink, decodeItems, decodeSites } from "./model.ts";
+import { decodeItems, decodeSites } from "./model.ts";
 import type { Item, Kind, Site } from "./model.ts";
 
 export const CACHE_MS = 5 * 60_000;
-export type Scope = { site: Site; kind: Kind; state: "pending" | "ok" | "unsupported" | "error"; skipped: number; error?: Failure; linkError?: Failure; fetchedAt?: number };
+export type Scope = { site: Site; kind: Kind; state: "pending" | "ok" | "unsupported" | "error"; skipped: number; error?: Failure; fetchedAt?: number };
 export type LoadState = { loading: boolean; sites: Site[]; items: Item[]; scopes: Scope[]; fetchedAt: number | null; error: Failure | null; retryAt: number; skippedSites: number; pagingComplete: boolean };
 function empty(): LoadState {
   return { loading: false, sites: [], items: [], scopes: [], fetchedAt: null, error: null, retryAt: 0, skippedSites: 0, pagingComplete: false };
@@ -88,22 +88,6 @@ export class Loader {
             if (!current()) return;
             const fetchedAt = this.#now();
             const decoded = decodeItems(response, scope.site, scope.kind, fetchedAt);
-            if (scope.kind === "assignment" && decoded.items.length && !scope.site.assignmentHref) {
-              try {
-                const pages = await this.#api.pages(scope.site.id, signal);
-                if (!current()) return;
-                const href = decodeAssignmentLink(pages, scope.site.id);
-                if (href) {
-                  scope.site.assignmentHref = href;
-                  for (const item of decoded.items) item.href = href;
-                }
-              } catch (error) {
-                if (!current()) return;
-                const failure = error instanceof ApiError ? error : new ApiError("network");
-                scope.linkError = failure.code;
-                if (["auth", "html", "rate-limit"].includes(failure.code)) { fail(failure); return; }
-              }
-            }
             scope.state = decoded.unsupported ? "unsupported" : "ok";
             scope.skipped = decoded.skipped;
             scope.fetchedAt = fetchedAt;

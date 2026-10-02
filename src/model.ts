@@ -47,20 +47,10 @@ export function assignmentLink(siteId: string, placementId: string): string {
   if (!validId(placementId)) throw new ApiError("schema");
   return `${courseLink(siteId)}/tool/${encodeURIComponent(placementId)}?panel=Main`;
 }
-// Sakai SiteEntityProvider's pages action returns placement IDs, not assignment IDs.
-export function decodeAssignmentLink(value: unknown, siteId: string): string | undefined {
-  const pages = Array.isArray(value) ? value : collection(value, "site_collection");
-  const placements = new Set<string>();
-  for (const page of pages) {
-    if (!record(page) || page.siteId !== siteId || !Array.isArray(page.tools)) continue;
-    for (const tool of page.tools) {
-      if (!record(tool) || tool.toolId !== "sakai.assignment.grades" || tool.siteId !== siteId ||
-        !validId(tool.placementId) || (tool.id !== undefined && tool.id !== tool.placementId)) continue;
-      placements.add(tool.placementId);
-    }
-  }
-  // ponytail: ambiguous placements fall back to the course; do not guess which tool is intended.
-  return placements.size === 1 ? assignmentLink(siteId, [...placements][0]!) : undefined;
+export function assignmentToolLink(siteId: string): string {
+  // Sakai resolves the common tool ID on the server; do not prefix it with "sakai.".
+  // ponytail: multiple assignment tools use Sakai's selection; add explicit selection only if needed.
+  return `${courseLink(siteId)}/assignment.grades`;
 }
 export function assignmentNavigationLinks(links: Iterable<{ href: string; textContent: string | null }>): Map<string, string> {
   const found = new Map<string, string>(), ambiguous = new Set<string>();
@@ -87,7 +77,7 @@ export function decodeItems(value: unknown, site: Site, kind: Kind, fetchedAt: n
     if (!record(row) || !validId(row.id) || row.context !== site.id || !title(row.title) || seen.has(row.id)) { skipped++; continue; }
     seen.add(row.id);
     items.push({ key: JSON.stringify([site.id, kind, row.id]), id: row.id, site, kind, title: row.title,
-      deadline: decodeDeadline(row.dueTime), href: site.assignmentHref ?? courseLink(site.id), fetchedAt });
+      deadline: decodeDeadline(row.dueTime), href: site.assignmentHref ?? assignmentToolLink(site.id), fetchedAt });
   }
   return { items, skipped, unsupported: false };
 }

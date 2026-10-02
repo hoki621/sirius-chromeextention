@@ -38,6 +38,10 @@ test("built package has minimal MV3 permissions and no runtime dependencies", ()
   const bundled = readFileSync(new URL("dist/content.js", root), "utf8");
   assert.doesNotMatch(bundled, /sirius-preview-settings|installMockStorage|読み取り診断を実行/);
   assert.doesNotMatch(bundled, /学習リストを開く/);
+  const panelSource = readFileSync(new URL("src/panel.ts", root), "utf8");
+  assert.doesNotMatch(panelSource, /使い方・制限|参考プロジェクト|Comfortable PandA/);
+  assert.doesNotMatch(bundled, /pages\.json/);
+  assert.match(panelSource, /拡張の保存データを削除/);
   const popup = readFileSync(new URL("dist/popup.js", root), "utf8");
   assert.doesNotMatch(popup, /fetch\(|cookies|storage/);
   assert.doesNotMatch(readFileSync(new URL("dist/popup.html", root), "utf8"), /(?:src|href)=["']https?:\/\/(?!lms\.sirius\.tuat\.ac\.jp)/);

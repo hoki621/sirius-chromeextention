@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { ApiError, ORIGIN, retryAfter, SiriusApi } from "../src/api.ts";
-import { courseLink, decodeDeadline, decodeItems, decodeSites, formatDate, group, visibleItems } from "../src/model.ts";
+import { assignmentToolLink, decodeDeadline, decodeItems, decodeSites, formatDate, group, visibleItems } from "../src/model.ts";
 const signal = () => new AbortController().signal;
 const fixture = (name: string): unknown => JSON.parse(readFileSync(new URL(`fixtures/${name}.observed.json`, import.meta.url), "utf8"));
 const fails = (code: string) => (error: unknown) => error instanceof ApiError && error.code === code;
@@ -25,11 +25,10 @@ test("fixed GET endpoints, credentials, conservative response errors and safe id
     assert.equal(options?.redirect, "error");
     return Response.json({});
   });
-  await api.sites(0, signal()); await api.assignments("sample-1", signal()); await api.quizzes("sample-1", signal()); await api.pages("sample-1", signal());
-  assert.deepEqual(calls, [`${ORIGIN}/direct/site.json?_limit=200&_start=0`, `${ORIGIN}/direct/assignment/site/sample-1.json`, `${ORIGIN}/direct/sam_pub/context/sample-1.json`, `${ORIGIN}/direct/site/sample-1/pages.json`]);
+  await api.sites(0, signal()); await api.assignments("sample-1", signal()); await api.quizzes("sample-1", signal());
+  assert.deepEqual(calls, [`${ORIGIN}/direct/site.json?_limit=200&_start=0`, `${ORIGIN}/direct/assignment/site/sample-1.json`, `${ORIGIN}/direct/sam_pub/context/sample-1.json`]);
   for (const bad of ["../x", "a/b", "a?x", "", "https://evil", "%2f"]) {
     assert.throws(() => api.assignments(bad, signal()), fails("schema"));
-    assert.throws(() => api.pages(bad, signal()), fails("schema"));
   }
   for (const [status, code] of [[401, "auth"], [403, "forbidden"], [429, "rate-limit"], [500, "http"]] as const) {
     await assert.rejects(new SiriusApi(async () => new Response("private", { status })).sites(0, signal()), fails(code));
@@ -63,7 +62,7 @@ test("observed projections decode project sites and dueTime, never closeTime or 
   const result = decodeItems(fixture("assignments-site-2"), sites[1]!, "assignment", 42);
   assert.equal(result.items.length, 2); assert.equal(result.skipped, 0);
   assert.deepEqual(result.items[0]!.deadline, { state: "known", at: 1893715200000 });
-  assert.equal(result.items[0]!.href, courseLink("sample-2"));
+  assert.equal(result.items[0]!.href, assignmentToolLink("sample-2"));
   assert.deepEqual(decodeItems(fixture("quizzes-empty"), sites[0]!, "quiz", 42), { items: [], skipped: 0, unsupported: false });
   assert.equal(decodeItems({ sam_pub_collection: [{}] }, sites[0]!, "quiz", 42).unsupported, true);
   assert.throws(() => decodeSites({}), fails("schema"));
@@ -76,7 +75,7 @@ test("synthetic invalid entries stay distinct from empty; unknown dates never be
   const rows = [{ id: "x", context: "s", title: "Task", dueTime: null, entityURL: "javascript:alert(1)" }, { id: "x", context: "s", title: "Duplicate" }, { id: "y", context: "other", title: "Wrong account" }];
   const result = decodeItems({ assignment_collection: rows }, site, "assignment", 0);
   assert.equal(result.items.length, 1); assert.equal(result.skipped, 2);
-  assert.equal(result.items[0]!.href, courseLink("s"));
+  assert.equal(result.items[0]!.href, assignmentToolLink("s"));
   assert.equal(visibleItems(result.items, { search: " task ", site: "s", kind: "assignment", showCompleted: false }, new Set()).length, 1);
   assert.equal(visibleItems(result.items, { search: "", site: "", kind: "", showCompleted: false }, new Set([result.items[0]!.key])).length, 0);
 });

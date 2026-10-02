@@ -126,7 +126,7 @@ Codex内蔵ブラウザに `dist` を読み込み、公式の課題一覧で試�
 - [SiriusのAPI一覧](https://lms.sirius.tuat.ac.jp/direct/describe)
 - [Siriusのsite説明](https://lms.sirius.tuat.ac.jp/direct/site/describe)
 
-## 0.2.0の課題リンク解決（2026-10-02、実Siriusは未検証）
+## 0.2.0の課題リンク解決（過去の実装、0.2.1で置換）
 
 利用者から、科目トップではなく `/portal/site/{siteId}/tool/{placementId}?panel=Main` の公式課題一覧へ移動したいとの要望と、実例URLの提供があった。実値は製品へ埋め込まない。タイトル内の日付の誤りは課題作成者側のものとして修正対象外とし、引き続き `dueTime` を表示する。
 
@@ -137,3 +137,13 @@ Sakaiの [SiteEntityProvider](https://github.com/sakaiproject/sakai/blob/master/
 追加GETは課題がある科目だけ、最大同時4件の既存キュー内で行う。403・未知JSON・通信失敗で課題一覧を失わず、リンク未取得を表示する。401/未知HTMLでは既存の保守的な情報消去、429ではキュー停止と再試行待機を適用する。
 
 このAPIと画面ナビゲーションの解釈は上流仕様・架空データでの実装であり、Siriusの応答を実測したものではない。通常Chromeでの課題一覧への遷移と互換性は利用者の実機確認に残す。
+
+## 0.2.1の課題リンク（2026-10-02）
+
+利用者から、特定科目だけ課題一覧へ移動するとの報告を受けた。0.2.0では表示中の科目は画面ナビゲーション、他科目は未実測のpages APIへ依存し、取得できない場合に科目トップへ戻していた。実SiriusのAPI失敗の種類までは確認できていない。
+
+配置ID取得への依存を削除し、他科目も `/portal/site/{siteId}/assignment.grades` へリンクする。Sakaiの [SiteHandler（23.x）](https://github.com/sakaiproject/sakai/blob/23.x/portal/portal-impl/impl/src/java/org/sakaiproject/portal/charon/handlers/SiteHandler.java) とmasterで、短いツール名に `sakai.` を付けて `site.getToolForCommonId` からページを選択する処理を確認した。この実装では `sakai.` を最初から付けた名前は検索されないため、必ず `assignment.grades` を使う。同一originと検証済み科目IDから生成し、応答URLを使わない。複数の課題ツールがある場合の選択はSakai側に委ねる。
+
+表示中の公式ナビゲーションが一意に検証できる場合は、従来の配置IDリンクを再利用する。pages APIへの追加GETは行わない。通常の課題GETなどの認証失効・通信エラー処理は変更しない。
+
+2科目と現在科目3条件（なし・科目A・科目B）でURLと追加GETなしを自動検証した。短縮経路が実Siriusで課題一覧へ到達するかは利用者による実機確認待ちであり、上流実装の確認だけで実機合格とはしない。
