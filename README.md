@@ -18,7 +18,7 @@
 
 ### 試用ZIPから使う
 
-配布された `sirius-0.2.4-trial.zip` を使います。配布物は開発者が下記のパッケージ作成手順で生成します。
+[βリリース v0.2.4](https://github.com/hoki621/sirius-chromeextention/releases/tag/v0.2.4) のAssetsから `sirius-0.2.4-trial.zip` をダウンロードします。非公開リポジトリのため、閲覧にはリポジトリへのアクセス権が必要です。アクセスできない場合は配布者からZIPを受け取ってください。
 
 1. ZIPを空のフォルダーへ展開します。
 2. Chromeで `chrome://extensions/` を開き、デベロッパーモードを有効にします。
@@ -33,7 +33,7 @@
 Node.js 22（22.18.0以上、23未満）とnpmが必要です。開発・CIで使うバージョンは [.nvmrc](.nvmrc) に固定しています。
 
 ```sh
-git clone --branch feature/ui-refresh-0.2 https://github.com/hoki621/sirius-chromeextention.git
+git clone https://github.com/hoki621/sirius-chromeextention.git
 cd sirius-chromeextention
 npm ci
 npm run build
