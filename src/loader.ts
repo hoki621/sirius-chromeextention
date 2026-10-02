@@ -1,6 +1,6 @@
 import { ApiError, SiriusApi } from "./api.ts";
 import type { Failure } from "./api.ts";
-import { decodeItems, decodeSites } from "./model.ts";
+import { decodeAssignmentDeepLink, decodeItems, decodeSites } from "./model.ts";
 import type { Item, Kind, Site } from "./model.ts";
 
 export const CACHE_MS = 5 * 60_000;
@@ -14,10 +14,13 @@ export class Loader {
   readonly #api: SiriusApi;
   readonly #notify: () => void;
   readonly #now: () => number;
+  readonly #knownLinks: ReadonlyMap<string, string>;
   #controller = new AbortController();
   #generation = 0;
   #task: Promise<void> | null = null;
-  constructor(api: SiriusApi, notify: () => void, now = Date.now) { this.#api = api; this.#notify = notify; this.#now = now; }
+  constructor(api: SiriusApi, notify: () => void, now = Date.now, knownLinks: ReadonlyMap<string, string> = new Map()) {
+    this.#api = api; this.#notify = notify; this.#now = now; this.#knownLinks = knownLinks;
+  }
   refresh(force = false): Promise<void> {
     if (this.#task) return this.#task;
     if (this.#now() < this.state.retryAt) return Promise.resolve();
@@ -45,7 +48,10 @@ export class Loader {
       if (!current()) return;
       const failure = error instanceof ApiError ? error : new ApiError("network");
       this.state.error = failure.code;
-      if (failure.code === "rate-limit") this.state.retryAt = failure.retryAt ?? this.#now() + 60_000;
+      if (failure.code === "rate-limit") {
+        this.state.retryAt = failure.retryAt ?? this.#now() + 60_000;
+        for (const item of this.state.items) if (item.detailState === "pending") { item.detailState = "fallback"; item.linkError = failure.code; }
+      }
       if (failure.code === "auth" || failure.code === "html") {
         // Unknown HTML may be a login page: clear private data without claiming a verified logout.
         this.state = { ...empty(), loading: true, error: failure.code };
@@ -64,6 +70,10 @@ export class Loader {
         if (decoded.count === 0) { this.state.pagingComplete = true; break; }
         if (decoded.ids.some(id => seen.has(id))) throw new ApiError("schema");
         decoded.ids.forEach(id => seen.add(id));
+        for (const site of decoded.sites) {
+          const href = this.#knownLinks.get(site.id);
+          if (href) site.assignmentHref = href;
+        }
         this.state.sites.push(...decoded.sites);
         this.state.skippedSites += decoded.skipped;
         start += decoded.count;
@@ -71,30 +81,41 @@ export class Loader {
       if (!current()) return;
       this.state.scopes = this.state.sites.flatMap(site => (["assignment", "quiz"] as const).map(kind => ({ site, kind, state: "pending" as const, skipped: 0 })));
       this.#notify();
-      let next = 0;
-      const worker = async () => {
-        while (current()) {
-          const scope = this.state.scopes[next++];
-          if (!scope) return;
-          try {
-            const response = scope.kind === "assignment" ? await this.#api.assignments(scope.site.id, signal) : await this.#api.quizzes(scope.site.id, signal);
-            if (!current()) return;
-            const fetchedAt = this.#now();
-            const decoded = decodeItems(response, scope.site, scope.kind, fetchedAt);
-            scope.state = decoded.unsupported ? "unsupported" : "ok";
-            scope.skipped = decoded.skipped;
-            scope.fetchedAt = fetchedAt;
-            this.state.items.push(...decoded.items);
-          } catch (error) {
-            if (!current()) return;
-            const failure = error instanceof ApiError ? error : new ApiError("network");
-            scope.state = "error"; scope.error = failure.code;
-            if (["auth", "html", "rate-limit"].includes(failure.code)) { fail(failure); return; }
+      // Discover every course first. Then use all four workers even for one course's links.
+      for (const jobs of [this.state.scopes, this.state.items]) {
+        let next = 0;
+        const worker = async () => {
+          while (current()) {
+            const job = jobs[next++];
+            if (!job) return;
+            try {
+              if ("key" in job) {
+                const response = await this.#api.assignmentDeepLink(job.site.id, job.id, signal);
+                if (!current()) return;
+                const href = decodeAssignmentDeepLink(response, job.site.id, job.id);
+                job.detailState = href ? "direct" : "fallback";
+                if (href) job.href = href;
+              } else {
+                const response = job.kind === "assignment" ? await this.#api.assignments(job.site.id, signal) : await this.#api.quizzes(job.site.id, signal);
+                if (!current()) return;
+                const fetchedAt = this.#now();
+                const decoded = decodeItems(response, job.site, job.kind, fetchedAt);
+                job.state = decoded.unsupported ? "unsupported" : "ok";
+                job.skipped = decoded.skipped; job.fetchedAt = fetchedAt;
+                this.state.items.push(...decoded.items);
+              }
+            } catch (error) {
+              if (!current()) return;
+              const failure = error instanceof ApiError ? error : new ApiError("network");
+              if ("key" in job) { job.detailState = "fallback"; job.linkError = failure.code; }
+              else { job.state = "error"; job.error = failure.code; }
+              if (["auth", "html", "rate-limit"].includes(failure.code)) { fail(failure); return; }
+            }
+            if (current()) this.#notify();
           }
-          if (current()) this.#notify();
-        }
-      };
-      await Promise.all(Array.from({ length: 4 }, worker));
+        };
+        await Promise.all(Array.from({ length: 4 }, worker));
+      }
       if (current()) this.state.fetchedAt = this.#now();
     } catch (error) { fail(error); }
   }

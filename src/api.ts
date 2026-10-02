@@ -39,6 +39,10 @@ export class SiriusApi {
     if (!validId(siteId)) throw new ApiError("schema");
     return this.#get(`/direct/assignment/site/${encodeURIComponent(siteId)}.json`, signal);
   }
+  assignmentDeepLink(siteId: string, assignmentId: string, signal: AbortSignal): Promise<unknown> {
+    if (!validId(siteId) || !validId(assignmentId)) throw new ApiError("schema");
+    return this.#get(`/direct/assignment/deepLink/${encodeURIComponent(siteId)}/${encodeURIComponent(assignmentId)}.json`, signal);
+  }
   quizzes(siteId: string, signal: AbortSignal): Promise<unknown> {
     if (!validId(siteId)) throw new ApiError("schema");
     return this.#get(`/direct/sam_pub/context/${encodeURIComponent(siteId)}.json`, signal);

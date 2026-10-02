@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const html = `<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sirius UI preview — synthetic data only</title>
 <style>body{font:16px system-ui;margin:16px;background:#e2e8f0}main{padding:16px;background:white}input,button{font:inherit;padding:8px}#requests{overflow-wrap:anywhere}</style>
-<h1>ローカル検証用・架空データ</h1><p id="requests"></p><nav id="linkNav"><a href="https://lms.sirius.tuat.ac.jp/portal/site/%7Edemo-user">架空ホーム</a></nav>
+<h1>ローカル検証用・架空データ</h1><p id="requests"></p><button id="preview-open" type="button">ツールバー起動を模擬</button><nav id="linkNav"><a href="https://lms.sirius.tuat.ac.jp/portal/site/%7Edemo-user">架空ホーム</a></nav>
 <main id="content"><h2>公式画面を模した領域</h2><form id="official-form"><label>入力保持テスト <input name="answer"></label><button>ローカル操作</button></form><p id="official-result"></p><button id="switch-account" type="button">アカウント変更を模擬</button><button id="expire-session" type="button">次回401を模擬</button></main><script src="/preview.js"></script></html>`;
 createServer(async (req, res) => {
   if (req.url === "/narrow") {

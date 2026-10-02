@@ -1,9 +1,10 @@
 import { ApiError, ORIGIN, validId } from "./api.ts";
+import type { Failure } from "./api.ts";
 
 export type Kind = "assignment" | "quiz";
-export type Site = { id: string; title: string };
+export type Site = { id: string; title: string; assignmentHref?: string };
 export type Deadline = { state: "known"; at: number } | { state: "none" | "unknown" };
-export type Item = { key: string; id: string; site: Site; kind: Kind; title: string; deadline: Deadline; href: string; fetchedAt: number };
+export type Item = { key: string; id: string; site: Site; kind: Kind; title: string; deadline: Deadline; href: string; fetchedAt: number; detailState?: "pending" | "direct" | "fallback"; linkError?: Failure };
 export type Group = "overdue" | "today" | "week" | "later" | "none" | "unknown";
 export const GROUPS: Record<Group, string> = { overdue: "期限超過", today: "今日", week: "明日から7日以内", later: "それ以降", none: "期限なし", unknown: "期限不明" };
 export function record(value: unknown): value is Record<string, unknown> {
@@ -43,6 +44,63 @@ export function courseLink(id: string): string {
   if (!validId(id)) throw new ApiError("schema");
   return `${ORIGIN}/portal/site/${encodeURIComponent(id)}`;
 }
+export function assignmentLink(siteId: string, placementId: string): string {
+  if (!validId(placementId)) throw new ApiError("schema");
+  return `${courseLink(siteId)}/tool/${encodeURIComponent(placementId)}?panel=Main`;
+}
+export function assignmentToolLink(siteId: string): string {
+  // Sakai resolves the common tool ID on the server; do not prefix it with "sakai.".
+  // ponytail: multiple assignment tools use Sakai's selection; add explicit selection only if needed.
+  return `${courseLink(siteId)}/assignment.grades`;
+}
+export function decodeAssignmentDeepLink(value: unknown, siteId: string, assignmentId: string): string | undefined {
+  // EntityBroker VIEW_LIST actions wrap their single Map result in a collection/EntityData.
+  if (record(value) && Object.hasOwn(value, "assignment_collection")) {
+    const rows = collection(value, "assignment_collection");
+    if (rows.length !== 1 || (value.entityPrefix !== undefined && value.entityPrefix !== "assignment") ||
+      Object.hasOwn(value, "assignmentId") || Object.hasOwn(value, "assignmentUrl")) throw new ApiError("schema");
+    value = rows[0];
+  }
+  if (record(value) && Object.hasOwn(value, "data")) {
+    if (Object.hasOwn(value, "assignmentId") || Object.hasOwn(value, "assignmentUrl")) throw new ApiError("schema");
+    value = value.data;
+  }
+  if (!validId(siteId) || !validId(assignmentId) || !record(value) || value.assignmentId !== assignmentId || typeof value.assignmentUrl !== "string") throw new ApiError("schema");
+  // Sakai returns an empty URL when no published, permitted destination is available.
+  if (value.assignmentUrl === "") return undefined;
+  let url: URL;
+  try { url = new URL(value.assignmentUrl); } catch { throw new ApiError("schema"); }
+  if (url.origin !== ORIGIN || url.username || url.password || url.hash || !/^\/portal\/directtool\/[A-Za-z0-9_~-]{1,200}$/.test(url.pathname)) throw new ApiError("schema");
+  const params = url.searchParams, allowed = ["assignmentId", "assignmentReference", "panel", "sakai_action"];
+  for (const key of params.keys()) if (!allowed.includes(key) || params.getAll(key).length !== 1) throw new ApiError("schema");
+  const action = params.get("sakai_action"), reference = `/assignment/a/${siteId}/${assignmentId}`;
+  if (params.get("panel") !== "Main" || !["doView_submission", "doView_assignment_honorPledge", "doView_assignment_as_student"].includes(action ?? "")) throw new ApiError("schema");
+  const id = params.get("assignmentId"), ref = params.get("assignmentReference");
+  if ((id !== null && id !== assignmentId && id !== reference) || (ref !== null && ref !== reference) ||
+    (ref === null && (action !== "doView_assignment_as_student" || id !== assignmentId))) throw new ApiError("schema");
+  // Reconstruct only the verified view parameters; never follow arbitrary API URLs.
+  const safe = new URL(url.pathname, ORIGIN);
+  if (id !== null) safe.searchParams.set("assignmentId", id);
+  if (ref !== null) safe.searchParams.set("assignmentReference", ref);
+  safe.searchParams.set("panel", "Main"); safe.searchParams.set("sakai_action", action!);
+  return safe.href;
+}
+export function assignmentNavigationLinks(links: Iterable<{ href: string; textContent: string | null }>): Map<string, string> {
+  const found = new Map<string, string>(), ambiguous = new Set<string>();
+  for (const link of links) {
+    if (!/^(?:課題|Assignments)$/i.test(link.textContent?.trim() ?? "")) continue;
+    try {
+      const url = new URL(link.href, ORIGIN);
+      const match = decodeURIComponent(url.pathname).match(/^\/portal\/site\/([^/]+)\/tool(?:-reset)?\/([^/]+)\/?$/);
+      if (url.origin !== ORIGIN || url.username || url.password || !match || !validId(match[1]) || !validId(match[2])) continue;
+      const href = assignmentLink(match[1], match[2]);
+      if (found.has(match[1]) && found.get(match[1]) !== href) ambiguous.add(match[1]);
+      found.set(match[1], href);
+    } catch { /* Ignore unknown navigation links rather than guessing a destination. */ }
+  }
+  for (const siteId of ambiguous) found.delete(siteId);
+  return found;
+}
 export function decodeItems(value: unknown, site: Site, kind: Kind, fetchedAt: number): { items: Item[]; skipped: number; unsupported: boolean } {
   const rows = collection(value, kind === "assignment" ? "assignment_collection" : "sam_pub_collection");
   if (kind === "quiz") return { items: [], skipped: 0, unsupported: rows.length > 0 };
@@ -52,7 +110,7 @@ export function decodeItems(value: unknown, site: Site, kind: Kind, fetchedAt: n
     if (!record(row) || !validId(row.id) || row.context !== site.id || !title(row.title) || seen.has(row.id)) { skipped++; continue; }
     seen.add(row.id);
     items.push({ key: JSON.stringify([site.id, kind, row.id]), id: row.id, site, kind, title: row.title,
-      deadline: decodeDeadline(row.dueTime), href: courseLink(site.id), fetchedAt });
+      deadline: decodeDeadline(row.dueTime), href: site.assignmentHref ?? assignmentToolLink(site.id), fetchedAt, detailState: "pending" });
   }
   return { items, skipped, unsupported: false };
 }
@@ -65,6 +123,16 @@ export function group(deadline: Deadline, now: number): Group {
 }
 const formatter = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 export function formatDate(at: number): string { return Number.isFinite(new Date(at).getTime()) ? formatter.format(at) : "日時不明"; }
+export function remainingTime(deadline: Deadline, now: number): string {
+  if (deadline.state !== "known") return deadline.state === "none" ? "期限なし" : "期限不明";
+  const difference = deadline.at - now;
+  if (difference < 0) return "期限超過";
+  if (difference < 60_000) return "まもなく締切";
+  if (difference < 3_600_000) return `残り${Math.ceil(difference / 60_000)}分`;
+  if (difference < DAY) return `残り${Math.ceil(difference / 3_600_000)}時間`;
+  const days = Math.floor(difference / DAY), hours = Math.floor(difference % DAY / 3_600_000);
+  return `残り${days}日${hours ? `${hours}時間` : ""}`;
+}
 export type Filters = { search: string; site: string; kind: string; showCompleted: boolean };
 export function visibleItems(items: Item[], filters: Filters, completed: ReadonlySet<string>): Item[] {
   const search = filters.search.trim().toLocaleLowerCase("ja");
