@@ -12,7 +12,6 @@
     "test": "node --test tests/*.test.ts",
     "build": "node scripts/build.mjs",
     "package:trial": "node scripts/package.mjs",
-    "build:probe": "node tools/probe/build.mjs",
     "preview": "node tools/preview/server.mjs"
   },
   "devDependencies": {
