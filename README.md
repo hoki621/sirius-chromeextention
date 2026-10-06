@@ -18,7 +18,7 @@
 
 ### 試用ZIPから使う
 
-[βリリース v0.2.4](https://github.com/hoki621/sirius-chromeextention/releases/tag/v0.2.4) のAssetsから `sirius-0.2.4-trial.zip` をダウンロードします。非公開リポジトリのため、閲覧にはリポジトリへのアクセス権が必要です。アクセスできない場合は配布者からZIPを受け取ってください。
+[βリリース v0.2.4](https://github.com/hoki621/sirius-chromeextention/releases/tag/v0.2.4) のAssetsから `sirius-0.2.4-trial.zip` をダウンロードします。GitHubアカウントなしでもダウンロードできます。
 
 1. ZIPを空のフォルダーへ展開します。
 2. Chromeで `chrome://extensions/` を開き、デベロッパーモードを有効にします。
