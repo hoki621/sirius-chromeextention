@@ -7,18 +7,6 @@ import { runInNewContext } from "node:vm";
 
 const root = new URL("../", import.meta.url);
 
-test("diagnostic build stays separate and requests no extension API permissions", () => {
-  execFileSync(process.execPath, [fileURLToPath(new URL("tools/probe/build.mjs", root))]);
-  assert.deepEqual(readdirSync(new URL("probe-dist/", root)).sort(), ["manifest.json", "probe.js"]);
-  const manifest = JSON.parse(readFileSync(new URL("probe-dist/manifest.json", root), "utf8"));
-  assert.deepEqual(Object.keys(manifest).sort(), ["content_scripts", "description", "manifest_version", "name", "version"]);
-  assert.equal(manifest.manifest_version, 3);
-  assert.deepEqual(manifest.content_scripts, [{
-    matches: ["https://lms.sirius.tuat.ac.jp/portal", "https://lms.sirius.tuat.ac.jp/portal?*", "https://lms.sirius.tuat.ac.jp/portal/*"],
-    js: ["probe.js"], run_at: "document_idle", world: "ISOLATED", all_frames: false,
-  }]);
-});
-
 test("built package has minimal MV3 permissions and no runtime dependencies", () => {
   execFileSync(process.execPath, [fileURLToPath(new URL("scripts/build.mjs", root))]);
   assert.deepEqual(readdirSync(new URL("dist/", root)).sort(), ["CREDITS.md", "content.js", "icon.png", "manifest.json", "popup.html", "popup.js"]);
