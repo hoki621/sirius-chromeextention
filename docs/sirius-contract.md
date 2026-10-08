@@ -4,7 +4,7 @@
 
 ## 状態
 
-課題支援の0.2.4 β版は実装済み。初期調査の [Issue #2](https://github.com/hoki621/sirius-chromeextention/issues/2) は2026-10-06に完了し、残るβ版の実機確認は [#10](https://github.com/hoki621/sirius-chromeextention/issues/10)、非空小テストは [#20](https://github.com/hoki621/sirius-chromeextention/issues/20)、アカウント別永続化は [#21](https://github.com/hoki621/sirius-chromeextention/issues/21) で扱う。追加機能の未確認契約をβ版の実装済み範囲と混同しない。
+課題支援の0.2.5 β版は実装済み。初期調査の [Issue #2](https://github.com/hoki621/sirius-chromeextention/issues/2) は2026-10-06に完了し、[#10](https://github.com/hoki621/sirius-chromeextention/issues/10) は利用者の試用ZIPの動作報告をもって今回のβ版の確認を区切る。非空小テストは [#20](https://github.com/hoki621/sirius-chromeextention/issues/20) に残し、アカウント別永続化 [#21](https://github.com/hoki621/sirius-chromeextention/issues/21) は未実装のまま見送る。追加機能の未確認契約をβ版の実装済み範囲と混同しない。
 
 利用者は大学アカウント・通常Chromeで拡張の追加と動作、0.2.3の公式個別課題画面への遷移を確認済み。詳細なAPI包装形式・非空小テスト・別アカウントでの識別値の安定性まで実測したことを意味しない。以下の診断・旧バージョンの記録は、その実行時点の観測範囲を示す。
 

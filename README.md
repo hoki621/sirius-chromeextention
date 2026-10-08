@@ -2,7 +2,7 @@
 
 東京農工大学のSirius LMSで、科目を横断して課題と締切を確認できる非公式Chrome拡張です。Chromeのツールバーから一覧を開き、課題名をクリックして公式の個別課題画面へ移動できます。
 
-現在のバージョンは **0.2.4（β版）**。利用者の大学アカウント・通常Chromeで導入と動作を確認し、0.2.3では個別課題への移動成功も報告されています。検証の詳細と未確認事項は [受け入れ記録](docs/acceptance.md) にまとめています。Chromeウェブストアには未公開です。
+現在のバージョンは **0.2.5（β版）**。利用者の大学アカウント・通常Chromeで導入と動作を確認し、0.2.3では個別課題への移動成功も報告されています。検証の詳細と未確認事項は [受け入れ記録](docs/acceptance.md) にまとめています。Chromeウェブストアには未公開です。
 
 ## できること
 
@@ -18,7 +18,7 @@
 
 ### 試用ZIPから使う
 
-[βリリース v0.2.4](https://github.com/hoki621/sirius-chromeextention/releases/tag/v0.2.4) のAssetsから `sirius-0.2.4-trial.zip` をダウンロードします。GitHubアカウントなしでもダウンロードできます。
+[βリリース v0.2.5](https://github.com/hoki621/sirius-chromeextention/releases/tag/v0.2.5) のAssetsから `sirius-0.2.5-trial.zip` をダウンロードします。GitHubアカウントなしでもダウンロードできます。
 
 1. ZIPを空のフォルダーへ展開します。
 2. Chromeで `chrome://extensions/` を開き、デベロッパーモードを有効にします。

@@ -1,0 +1,40 @@
+name: Beta release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Check tag version
+        run: node --input-type=module -e 'import assert from "node:assert/strict"; import {readFileSync} from "node:fs"; const {version}=JSON.parse(readFileSync("package.json", "utf8")); assert.equal(process.env.GITHUB_REF_NAME, "v"+version);'
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - name: Package and publish beta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_dir="$(node scripts/package.mjs)"
+          gh release create "$GITHUB_REF_NAME" \
+            "$release_dir/sirius-${GITHUB_REF_NAME#v}-trial.zip" "$release_dir/build.json" \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease \
+            --title "Sirius 学習支援 ${GITHUB_REF_NAME#v} β" --generate-notes
