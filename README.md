@@ -2,7 +2,7 @@
 
 東京農工大学のSirius LMSで、科目を横断して課題と締切を確認できる非公式Chrome拡張です。Chromeのツールバーから一覧を開き、課題名をクリックして公式の個別課題画面へ移動できます。
 
-現在のバージョンは **0.2.5（β版）**。利用者の大学アカウント・通常Chromeで導入と動作を確認し、0.2.3では個別課題への移動成功も報告されています。検証の詳細と未確認事項は [受け入れ記録](docs/acceptance.md) にまとめています。Chromeウェブストアには未公開です。
+現在のバージョンは **0.2.6（β版）**。利用者の大学アカウント・通常Chromeで導入と動作を確認し、0.2.3では個別課題への移動成功も報告されています。検証の詳細と未確認事項は [受け入れ記録](docs/acceptance.md) にまとめています。Chromeウェブストアには未公開です。
 
 ## できること
 
@@ -18,7 +18,7 @@
 
 ### 試用ZIPから使う
 
-[βリリース v0.2.5](https://github.com/hoki621/sirius-chromeextention/releases/tag/v0.2.5) のAssetsから `sirius-0.2.5-trial.zip` をダウンロードします。GitHubアカウントなしでもダウンロードできます。
+[βリリース v0.2.6](https://github.com/hoki621/sirius-chromeextention/releases/tag/v0.2.6) のAssetsから `sirius-0.2.6-trial.zip` をダウンロードします。GitHubアカウントなしでもダウンロードできます。
 
 1. ZIPを空のフォルダーへ展開します。
 2. Chromeで `chrome://extensions/` を開き、デベロッパーモードを有効にします。
@@ -99,7 +99,11 @@ npm run preview
 
 試用ZIPは、変更をコミットして作業ツリーをクリーンにした後、`npm run package:trial` で生成します。`releases/` にZIPとコミット・SHA-256を記録した `build.json` を出力します。生成物はGit管理しません。詳しくは [配布準備](docs/packaging.md) を参照してください。
 
-仕様と実装計画は [Issue #1](https://github.com/hoki621/sirius-chromeextention/issues/1)、APIの実機調査は [Sirius契約調査](docs/sirius-contract.md) を参照してください。[ストア提出準備](docs/store-listing.md) に掲載文案・画像・申請手順・残る所有者作業をまとめています。ライセンスは所有者の選択後に確定します。
+仕様と実装計画は [Issue #1](https://github.com/hoki621/sirius-chromeextention/issues/1)、APIの実機調査は [Sirius契約調査](docs/sirius-contract.md) を参照してください。[ストア提出準備](docs/store-listing.md) に掲載文案・画像・申請手順・残る所有者作業をまとめています。
+
+## ライセンス
+
+本プロジェクトは [MIT License](LICENSE) で公開しています。著作権表示とライセンス本文を残して、利用・改変・再配布・商用利用ができます。配布ZIPにもLICENSEを同梱します。参考元・第三者の権利と謝辞は [CREDITS.md](CREDITS.md) を参照してください。
 
 ## 参考プロジェクト
 

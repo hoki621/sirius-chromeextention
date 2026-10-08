@@ -13,7 +13,7 @@ const commit = run("git", ["rev-parse", "HEAD"]);
 run(process.execPath, ["scripts/build.mjs"]);
 const { version } = JSON.parse(readFileSync(join(root, "dist/manifest.json"), "utf8"));
 assert.match(version, /^\d+\.\d+\.\d+(?:\.\d+)?$/);
-const files = ["CREDITS.md", "content.js", "icon.png", "icon128.png", "manifest.json", "popup.html", "popup.js"];
+const files = ["CREDITS.md", "LICENSE", "content.js", "icon.png", "icon128.png", "manifest.json", "popup.html", "popup.js"];
 const staging = mkdtempSync(join(tmpdir(), "sirius-package-"));
 try {
   for (const file of files) copyFileSync(join(root, "dist", file), join(staging, file));
