@@ -4,7 +4,7 @@
   "version": "0.2.4",
   "description": "Sirius LMSの課題を読み取り専用で一覧表示する非公式拡張。検証中の試用版です。",
   "permissions": ["storage"],
-  "icons": { "32": "icon.png" },
+  "icons": { "32": "icon.png", "128": "icon128.png" },
   "action": { "default_title": "Siriusの課題一覧を開く", "default_popup": "popup.html", "default_icon": "icon.png" },
   "content_scripts": [
     {
