@@ -12,29 +12,53 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
-      - name: Check tag version
-        run: node --input-type=module -e 'import assert from "node:assert/strict"; import {readFileSync} from "node:fs"; const {version}=JSON.parse(readFileSync("package.json", "utf8")); assert.equal(process.env.GITHUB_REF_NAME, "v"+version);'
+      - name: Check release source
+        run: |
+          node --input-type=module -e 'import assert from "node:assert/strict"; import {readFileSync} from "node:fs"; const {version}=JSON.parse(readFileSync("package.json", "utf8")); assert.equal(process.env.GITHUB_REF_NAME, "v"+version);'
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
       - run: npm ci
       - run: npm run check
       - run: npm test
-      - name: Package and publish beta
+      - name: Package beta
+        id: package
+        run: |
+          release_dir="$(node scripts/package.mjs)"
+          printf 'directory=%s\n' "$release_dir" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: beta-package
+          path: |
+            ${{ steps.package.outputs.directory }}/*.zip
+            ${{ steps.package.outputs.directory }}/build.json
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: beta-package
+          path: release-assets
+      - name: Publish beta
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          release_dir="$(node scripts/package.mjs)"
           gh release create "$GITHUB_REF_NAME" \
-            "$release_dir/sirius-${GITHUB_REF_NAME#v}-trial.zip" "$release_dir/build.json" \
+            "release-assets/sirius-${GITHUB_REF_NAME#v}-trial.zip" "release-assets/build.json" \
             --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease \
             --title "Sirius 学習支援 ${GITHUB_REF_NAME#v} β" --generate-notes
