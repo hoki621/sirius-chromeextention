@@ -9,11 +9,15 @@ const root = new URL("../", import.meta.url);
 
 test("built package has minimal MV3 permissions and no runtime dependencies", () => {
   execFileSync(process.execPath, [fileURLToPath(new URL("scripts/build.mjs", root))]);
-  assert.deepEqual(readdirSync(new URL("dist/", root)).sort(), ["CREDITS.md", "content.js", "icon.png", "icon128.png", "manifest.json", "popup.html", "popup.js"]);
+  assert.deepEqual(readdirSync(new URL("dist/", root)).sort(), ["CREDITS.md", "LICENSE", "content.js", "icon.png", "icon128.png", "manifest.json", "popup.html", "popup.js"]);
   const manifest = JSON.parse(readFileSync(new URL("dist/manifest.json", root), "utf8"));
   const pkg = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
   assert.equal(manifest.manifest_version, 3);
   assert.equal(manifest.version, pkg.version);
+  assert.equal(pkg.license, "MIT");
+  const license = readFileSync(new URL("LICENSE", root), "utf8");
+  assert.match(license, /^MIT License\n/);
+  assert.equal(readFileSync(new URL("dist/LICENSE", root), "utf8"), license);
   assert.deepEqual(manifest.permissions, ["storage"]);
   assert.equal(manifest.host_permissions, undefined);
   assert.equal(manifest.background, undefined);

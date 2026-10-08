@@ -21,6 +21,7 @@ await build({
 await copyFile(new URL("manifest.json", root), new URL("dist/manifest.json", root));
 await copyFile(new URL("popup.html", root), new URL("dist/popup.html", root));
 await copyFile(new URL("CREDITS.md", root), new URL("dist/CREDITS.md", root));
+await copyFile(new URL("LICENSE", root), new URL("dist/LICENSE", root));
 // Original 32px S glyph, not an upstream logo. Inline PNG avoids an image-build dependency.
 await writeFile(new URL("dist/icon.png", root), Buffer.from("iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAVklEQVR4nO3WywkAIAxEwdys0YKsWzuQbJT44S3sSYhzMWiltn6yBgDA7HBXAEiAyBAFDyANEH6GADwYNQDCgJV6MQD+3YTvAjxD1MzuAHD3rxgAgIwOcU/F2DBKQAIAAAAASUVORK5CYII=", "base64"));
 // Same S glyph at 3x resolution, with transparent 16px padding for the store icon.
