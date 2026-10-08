@@ -9,7 +9,7 @@ const root = new URL("../", import.meta.url);
 
 test("built package has minimal MV3 permissions and no runtime dependencies", () => {
   execFileSync(process.execPath, [fileURLToPath(new URL("scripts/build.mjs", root))]);
-  assert.deepEqual(readdirSync(new URL("dist/", root)).sort(), ["CREDITS.md", "content.js", "icon.png", "manifest.json", "popup.html", "popup.js"]);
+  assert.deepEqual(readdirSync(new URL("dist/", root)).sort(), ["CREDITS.md", "content.js", "icon.png", "icon128.png", "manifest.json", "popup.html", "popup.js"]);
   const manifest = JSON.parse(readFileSync(new URL("dist/manifest.json", root), "utf8"));
   const pkg = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
   assert.equal(manifest.manifest_version, 3);
@@ -21,6 +21,10 @@ test("built package has minimal MV3 permissions and no runtime dependencies", ()
   const icon = readFileSync(new URL("dist/icon.png", root));
   assert.equal(icon.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
   assert.equal(icon.readUInt32BE(16), 32); assert.equal(icon.readUInt32BE(20), 32);
+  assert.deepEqual(manifest.icons, { "32": "icon.png", "128": "icon128.png" });
+  const storeIcon = readFileSync(new URL("dist/icon128.png", root));
+  assert.equal(storeIcon.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  assert.equal(storeIcon.readUInt32BE(16), 128); assert.equal(storeIcon.readUInt32BE(20), 128);
   assert.equal(manifest.web_accessible_resources, undefined);
   assert.equal(pkg.dependencies, undefined);
   const bundled = readFileSync(new URL("dist/content.js", root), "utf8");

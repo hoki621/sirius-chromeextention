@@ -2,6 +2,16 @@
 
 公開用の受け入れ試験は未完了。ZIP作成の成功は、通常Chromeでの動作・ライセンス・ストア提出準備の完了を意味しない。
 
+## GitHub ActionsでβReleaseを作る
+
+PRとmainのCIは型検査・テスト・ビルドを行います。`Beta release`ワークフローは`v*`タグのpushを契機に、タグとpackage.jsonの版の一致を確認し、型検査・全テスト・パッケージ検査が成功した場合だけGitHubのプレリリースを作成します。ZIPとcommit・SHA-256付きの`build.json`を添付します。Chromeウェブストアへの送信は行いません。
+
+1. `manifest.json`、`package.json`、`package-lock.json`と利用案内の版を更新し、検証済みのPRをmainへマージする。
+2. mainを最新にして、対応する新しいタグを作りpushする。0.2.5なら`git tag v0.2.5`、`git push origin v0.2.5`。既存のタグは動かさない。
+3. GitHub Actionsの`Beta release`が成功し、ReleaseにZIPと`build.json`があることを確認する。GitHubが添付するソースアーカイブではなく、`sirius-<版>-trial.zip`を利用者へ案内する。
+
+追加の個人用アクセストークンは不要です。Releaseジョブの`GITHUB_TOKEN`にだけ`contents: write`を付け、checkoutには認証情報を残しません。同名Releaseが既にある場合は失敗させ、既存配布物を自動で上書きしません。
+
 ## 作成
 
 Node/npmに加え、macOS/Linuxの `git`・`zip`・`unzip` が必要。Windows向け実行手順は未検証。
@@ -11,7 +21,7 @@ Node/npmに加え、macOS/Linuxの `git`・`zip`・`unzip` が必要。Windows�
 3. `npm run package:trial` を実行する。再ビルド後、`releases/` の新しいディレクトリに試用ZIPと `build.json` を出力する。既存のZIPは上書きしない。
 4. `build.json` のcommitが検証対象と一致することを確認する。バージョン、ZIPのSHA-256、Nodeバージョン、生成時刻も記録する。
 
-0.2.0のZIPはルート直下の `manifest.json`、`content.js`、`popup.html`、`popup.js`、独自の `icon.png`、`CREDITS.md` の6ファイルのみ。固定リストで格納し、展開内容とビルド結果のバイト一致を毎回検査する。古いdist内のログ等は含めない。メタデータはZIPの外に置き、成果物はGit管理しない。ZIP自体のビット単位の再現性は保証しない。
+ZIPはルート直下の `manifest.json`、`content.js`、`popup.html`、`popup.js`、独自の `icon.png`（32px）・`icon128.png`（128px）、`CREDITS.md` の7ファイルのみ。固定リストで格納し、展開内容とビルド結果のバイト一致を毎回検査する。古いdist内のログ等は含めない。メタデータはZIPの外に置き、成果物はGit管理しない。ZIP自体のビット単位の再現性は保証しない。
 
 ## 導入確認
 
@@ -21,7 +31,7 @@ ZIPを空のディレクトリへ展開し、通常Chromeの新規プロファ�
 
 ## 公開前に残る条件
 
-- Issue #2 / #10のAPI契約・通常Chrome・拡大表示・公式フォームとの共存などの受け入れ試験。
+- β試用の動作確認は利用者が報告済み。200%ズーム・公式フォーム等の未確認範囲は受け入れ記録に残し、ストア提出時に必要な範囲を再確認する。#10は今回のβ版として区切り、#20の小テストは実測待ち、#21の永続化は見送り。
 - 所有者によるライセンス選択と必要な通知。
-- ストア説明・アイコン・匿名化画像・申請要件の確認・所有者情報とポリシー公開先の確定。
+- [ストア掲載・提出手順](store-listing.md)の素材と申請欄を確認し、所有者情報とポリシー公開先を確定する。
 - 一般公開とストア送信は別途所有者の指示が必要。このコマンドにはアップロード機能はない。

@@ -2,7 +2,7 @@
 
 東京農工大学のSirius LMSで、科目を横断して課題と締切を確認できる非公式Chrome拡張です。Chromeのツールバーから一覧を開き、課題名をクリックして公式の個別課題画面へ移動できます。
 
-現在のバージョンは **0.2.4（β版）**。利用者の大学アカウント・通常Chromeで導入と動作を確認し、0.2.3では個別課題への移動成功も報告されています。検証の詳細と未確認事項は [受け入れ記録](docs/acceptance.md) にまとめています。Chromeウェブストアには未公開です。
+現在のバージョンは **0.2.5（β版）**。利用者の大学アカウント・通常Chromeで導入と動作を確認し、0.2.3では個別課題への移動成功も報告されています。検証の詳細と未確認事項は [受け入れ記録](docs/acceptance.md) にまとめています。Chromeウェブストアには未公開です。
 
 ## できること
 
@@ -18,7 +18,7 @@
 
 ### 試用ZIPから使う
 
-[βリリース v0.2.4](https://github.com/hoki621/sirius-chromeextention/releases/tag/v0.2.4) のAssetsから `sirius-0.2.4-trial.zip` をダウンロードします。GitHubアカウントなしでもダウンロードできます。
+[βリリース v0.2.5](https://github.com/hoki621/sirius-chromeextention/releases/tag/v0.2.5) のAssetsから `sirius-0.2.5-trial.zip` をダウンロードします。GitHubアカウントなしでもダウンロードできます。
 
 1. ZIPを空のフォルダーへ展開します。
 2. Chromeで `chrome://extensions/` を開き、デベロッパーモードを有効にします。
@@ -65,6 +65,8 @@ Chromeへの導入手順で、このリポジトリの `dist` フォルダーを
 
 拡張のAPI権限は `storage` のみです。提出・受験開始・採点、自動取得、アクセス解析は実装していません。認証エラーや解釈できないHTML応答を受けた場合は、閉じたパネルの表示内容も含め学習情報を消去します。
 
+「読み取り専用」は、現行コードが取得・表示だけを行うという実装方針です。Chromeの権限によってSiriusへの書き込みが禁止されるわけではありません。拡張は対象のSiriusページにアクセスし、ブラウザのログインセッションを使って通信できるため、導入・更新時には配布元を確認してください。ローカル導入は本リポジトリのソースまたはGitHub Releasesを使用してください。この権限上の性質は、Chromeウェブストアから配布する場合も同じです。
+
 保存設定は「取得範囲・科目別の結果」内の「拡張の保存データを削除」で削除できます。無効化・削除は `chrome://extensions/` から行い、Siriusページを再読み込みしてください。詳しくは [データの扱い](docs/privacy.md) を参照してください。
 
 ## βテスト・不具合報告
@@ -97,7 +99,7 @@ npm run preview
 
 試用ZIPは、変更をコミットして作業ツリーをクリーンにした後、`npm run package:trial` で生成します。`releases/` にZIPとコミット・SHA-256を記録した `build.json` を出力します。生成物はGit管理しません。詳しくは [配布準備](docs/packaging.md) を参照してください。
 
-仕様と実装計画は [Issue #1](https://github.com/hoki621/sirius-chromeextention/issues/1)、APIの実機調査は [Sirius契約調査](docs/sirius-contract.md) を参照してください。ライセンスとストア掲載情報は公開準備時に確定します。
+仕様と実装計画は [Issue #1](https://github.com/hoki621/sirius-chromeextention/issues/1)、APIの実機調査は [Sirius契約調査](docs/sirius-contract.md) を参照してください。[ストア提出準備](docs/store-listing.md) に掲載文案・画像・申請手順・残る所有者作業をまとめています。ライセンスは所有者の選択後に確定します。
 
 ## 参考プロジェクト
 
