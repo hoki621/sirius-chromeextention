@@ -4,13 +4,15 @@
 
 ## GitHub ActionsでβReleaseを作る
 
-PRとmainのCIは型検査・テスト・ビルドを行います。`Beta release`ワークフローは`v*`タグのpushを契機に、タグとpackage.jsonの版の一致を確認し、型検査・全テスト・パッケージ検査が成功した場合だけGitHubのプレリリースを作成します。ZIPとcommit・SHA-256付きの`build.json`を添付します。Chromeウェブストアへの送信は行いません。
+PRとmainのCIは型検査・テスト・ビルドを行います。`Beta release`ワークフローは`v*`タグのpushを契機に、タグとpackage.jsonの版の一致、およびタグのコミットがmainに含まれることを確認します。型検査・全テスト・パッケージ検査が成功した場合だけGitHubのプレリリースを作成し、ZIPとcommit・SHA-256付きの`build.json`を添付します。Chromeウェブストアへの送信は行いません。
 
 1. `manifest.json`、`package.json`、`package-lock.json`と利用案内の版を更新し、検証済みのPRをmainへマージする。
 2. mainを最新にして、対応する新しいタグを作りpushする。0.2.5なら`git tag v0.2.5`、`git push origin v0.2.5`。既存のタグは動かさない。
 3. GitHub Actionsの`Beta release`が成功し、ReleaseにZIPと`build.json`があることを確認する。GitHubが添付するソースアーカイブではなく、`sirius-<版>-trial.zip`を利用者へ案内する。
 
-追加の個人用アクセストークンは不要です。Releaseジョブの`GITHUB_TOKEN`にだけ`contents: write`を付け、checkoutには認証情報を残しません。同名Releaseが既にある場合は失敗させ、既存配布物を自動で上書きしません。
+追加の個人用アクセストークンは不要です。依存のインストール・検査・ZIP生成は`contents: read`のビルドジョブで行います。生成物はワークフロー内のartifactで別の公開ジョブへ渡します。公開ジョブだけが`contents: write`を持ち、ソースのcheckout、依存のインストール、ビルドコードの実行は行いません。同名Releaseが既にある場合は失敗させ、既存配布物を自動で上書きしません。
+
+mainはPRとCIの`check`成功を必須とし、強制更新・削除を禁止します。`v*`タグは管理者だけが作成でき、作成後の更新・削除は禁止します。リポジトリ設定の変更権限を持つ管理者は保護設定自体を変更できるため、所有者アカウントの管理は引き続き必要です。
 
 ## 作成
 
